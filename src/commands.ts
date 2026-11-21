@@ -472,6 +472,12 @@ const HANDLERS: Record<string, Handler> = {
 		});
 	},
 
+	async mcp(_args, h) {
+		const { jalankanMcp } = await import("./mcp.js");
+		const { io: _io, ...dasar } = h.ctx;
+		await jalankanMcp(dasar, versiPaket());
+	},
+
 	terima(_args, h) {
 		for (const baris of terima(h.ledger, h.repo)) h.io.stdout(baris);
 	},

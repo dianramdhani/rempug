@@ -43,6 +43,9 @@ for (const sinyal of ["SIGINT", "SIGTERM"] as const)
 process.exitCode = await run(process.argv.slice(2), {
 	env: process.env,
 	cwd: process.cwd(),
+	tmux: process.env.REMPUG_TMUX_SOCKET
+		? { socket: process.env.REMPUG_TMUX_SOCKET }
+		: undefined,
 	sinyal: kontrol.signal,
 	io: {
 		stdout: (teks) => void process.stdout.write(`${teks}\n`),
