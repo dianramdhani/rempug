@@ -17,9 +17,9 @@ export default {
 			"@semantic-release/git",
 			{
 				assets: ["CHANGELOG.md", "package.json", "package-lock.json"],
-				// Placeholder ini diganti oleh semantic-release sendiri, bukan oleh JavaScript.
-				// biome-ignore lint/suspicious/noTemplateCurlyInString: template semantic-release
 				message:
+					// Placeholder ini diganti oleh semantic-release sendiri, bukan oleh JavaScript.
+					// biome-ignore lint/suspicious/noTemplateCurlyInString: template semantic-release
 					"chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}",
 			},
 		],
