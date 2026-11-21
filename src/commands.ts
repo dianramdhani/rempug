@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { agentRows, formatAgentRow, register } from "./core/agents.js";
@@ -470,6 +472,34 @@ const HANDLERS: Record<string, Handler> = {
 				await pump(sendDeps(h)).catch(() => []);
 			},
 		});
+	},
+
+	skill(args, h) {
+		if (args[0] !== "install")
+			throw new UsageError("pemakaian: rempug skill install");
+		const sumber = readFileSync(
+			new URL("../../skills/rempug/SKILL.md", import.meta.url),
+			"utf8",
+		);
+		const konfig =
+			h.ctx.env.CLAUDE_CONFIG_DIR ||
+			join(h.ctx.env.HOME || homedir(), ".claude");
+		const tujuan = join(konfig, "skills", "rempug", "SKILL.md");
+		let lama: string | undefined;
+		try {
+			lama = readFileSync(tujuan, "utf8");
+		} catch {
+			lama = undefined;
+		}
+		if (lama === sumber)
+			return void h.io.stdout(`skill sudah terbaru: ${tujuan}`);
+		mkdirSync(dirname(tujuan), { recursive: true });
+		writeFileSync(tujuan, sumber);
+		h.io.stdout(
+			lama === undefined
+				? `skill terpasang: ${tujuan}`
+				: `skill diperbarui: ${tujuan}`,
+		);
 	},
 
 	async mcp(_args, h) {

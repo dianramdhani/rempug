@@ -1,0 +1,15 @@
+{
+	"hooks": {
+		"SessionStart": [
+			{
+				"matcher": "startup|resume",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "rempug status 2>/dev/null || true"
+					}
+				]
+			}
+		]
+	}
+}

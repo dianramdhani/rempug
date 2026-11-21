@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -402,4 +403,43 @@ test("doctor mencetak satu baris per pemeriksaan", async (t) => {
 	assert.ok([0, 1].includes(r.kode));
 	assert.match(r.teks, /^✓ node/m);
 	assert.match(r.teks, /^✓ tmux/m);
+});
+
+test("skill install menyalin skill ke ~/.claude tanpa menyentuh repo", async (t) => {
+	const { jalan, repo, dir } = await siapkan(t);
+	const tujuan = join(dir, ".claude", "skills", "rempug", "SKILL.md");
+
+	const pertama = await jalan(["skill", "install"]);
+	assert.equal(pertama.kode, 0, pertama.err.join());
+	assert.match(pertama.teks, /skill terpasang/);
+	assert.match(readFileSync(tujuan, "utf8"), /^---\nname: rempug\n/);
+	assert.equal(
+		execFileSync("git", ["-C", repo, "status", "--porcelain"], {
+			encoding: "utf8",
+		}),
+		"",
+	);
+
+	assert.match((await jalan(["skill", "install"])).teks, /sudah terbaru/);
+	writeFileSync(tujuan, "lama");
+	assert.match((await jalan(["skill", "install"])).teks, /skill diperbarui/);
+	assert.match(readFileSync(tujuan, "utf8"), /name: rempug/);
+	assert.equal((await jalan(["skill"])).kode, 2);
+});
+
+test("CLAUDE_CONFIG_DIR menentukan lokasi pemasangan skill", async (t) => {
+	const { jalan, dir } = await siapkan(t);
+	const lain = join(dir, "konfig-lain");
+	const r = await jalan(["skill", "install"], undefined, {
+		env: {
+			HOME: dir,
+			CLAUDE_CONFIG_DIR: lain,
+			XDG_STATE_HOME: join(dir, "state"),
+		},
+	});
+	assert.equal(r.kode, 0, r.err.join());
+	assert.match(
+		readFileSync(join(lain, "skills", "rempug", "SKILL.md"), "utf8"),
+		/name: rempug/,
+	);
 });

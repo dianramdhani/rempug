@@ -31,5 +31,10 @@
 				"organizeImports": "on"
 			}
 		}
+	},
+	"markdown": {
+		"formatter": {
+			"enabled": false
+		}
 	}
 }

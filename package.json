@@ -17,6 +17,9 @@
 	"files": [
 		"dist/src",
 		"skills",
+		".claude-plugin",
+		"hooks",
+		".mcp.json",
 		"README.md",
 		"LICENSE"
 	],
