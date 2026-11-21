@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { Ledger } from "../../src/core/ledger.js";
 import {
 	claimConflicts,
+	covers,
 	formatConflict,
 	scopesOverlap,
 } from "../../src/core/scope.js";
@@ -150,4 +151,18 @@ test("formatConflict menyebut tugas, agent, dan kedua pola", () => {
 		}),
 		"bentrok dengan T12 (codex): src/a.ts beririsan dengan src/**",
 	);
+});
+
+test("covers: path konkret dicocokkan terhadap pola cakupan", () => {
+	assert.equal(covers(["src/a/**"], "src/a/b.ts"), true);
+	assert.equal(covers(["src/a"], "src/a"), true);
+	assert.equal(covers(["src/a"], "src/a/b/c.ts"), true);
+	assert.equal(covers(["src/a"], "src/ab"), false);
+	assert.equal(covers(["src/*.ts"], "src/x.ts"), true);
+	assert.equal(covers(["src/*.ts"], "src/x/y.ts"), false);
+	assert.equal(covers(["**"], "apa/saja.ts"), true);
+	assert.equal(covers(["src/a/**"], "./src/a/b.ts"), true);
+	assert.equal(covers(["src/a/**", "lib/x.ts"], "lib/x.ts"), true);
+	assert.equal(covers([], "src/a"), false);
+	assert.equal(covers(["src/a"], "package.json"), false);
 });

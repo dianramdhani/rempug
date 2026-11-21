@@ -1,6 +1,18 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import type { Profil } from "./profile.js";
+
+/** Hasil ukur probe; hanya diisi setelah agent diprobe. */
+export interface Ukur {
+	/** Milidetik dari kirim sampai agent membaca brief. */
+	ackMs?: number;
+	/** Layar agent terus berubah walau idle (spinner), jadi hash layar tidak cukup untuk deteksi macet. */
+	animasiIdle?: boolean;
+	/** Awal baris prompt saat agent siap, mis. `> `. */
+	penandaSiap?: string;
+	probeAt?: number;
+}
 
 export interface Agent {
 	name: string;
@@ -8,6 +20,15 @@ export interface Agent {
 	/** Target pane `sesi:window.pane`. */
 	tmux: string;
 	capabilities: string[];
+	/** Profil pengiriman hasil probe; kosong berarti belum diprobe. */
+	kirim?: Profil;
+	/** Tidak lolos probe, jadi tidak dipakai. */
+	tidakAndal?: boolean;
+	/** Versi CLI agent saat diprobe; perubahan menandai profil usang. */
+	versi?: string;
+	ukur?: Ukur;
+	/** Pengiriman gagal berturut-turut; dua kali memicu probe ulang. */
+	gagalBeruntun?: number;
 }
 
 type Env = Record<string, string | undefined>;
@@ -80,4 +101,19 @@ export function removeAgent(file: string, name: string): boolean {
 	if (sisa.length === agents.length) return false;
 	writeAgents(file, sisa);
 	return true;
+}
+
+/** Memperbarui bidang agent (mis. hasil probe); galat bila agent tidak ada. */
+export function updateAgent(
+	file: string,
+	name: string,
+	fields: Partial<Omit<Agent, "name">>,
+): Agent {
+	const agents = readAgents(file);
+	const index = agents.findIndex((a) => a.name === name);
+	if (index < 0) throw new Error(`agent "${name}" tidak terdaftar`);
+	const baru = { ...(agents[index] as Agent), ...fields };
+	agents[index] = baru;
+	writeAgents(file, agents);
+	return baru;
 }

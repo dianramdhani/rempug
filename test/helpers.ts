@@ -5,9 +5,10 @@ import {
 	mkdirSync,
 	mkdtempSync,
 	rmSync,
+	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import type { TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import type { TmuxOpts } from "../src/core/tmux.js";
@@ -121,4 +122,25 @@ export function startTmux(t: TestContext) {
 			);
 		},
 	};
+}
+
+/** Repo git sementara dengan satu commit awal; `berkas` adalah isi awal (path → teks). */
+export function gitRepo(
+	t: TestContext,
+	berkas: Record<string, string> = { "README.md": "halo\n" },
+): string {
+	const dir = tmp(t);
+	const git = (...args: string[]) =>
+		execFileSync("git", ["-C", dir, ...args], { stdio: "pipe" });
+	git("init", "-q", "-b", "main");
+	git("config", "user.email", "uji@example.com");
+	git("config", "user.name", "Uji");
+	for (const [path, isi] of Object.entries(berkas)) {
+		const full = join(dir, path);
+		mkdirSync(dirname(full), { recursive: true });
+		writeFileSync(full, isi);
+	}
+	git("add", "-A");
+	git("commit", "-q", "-m", "awal");
+	return dir;
 }

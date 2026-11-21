@@ -39,6 +39,10 @@ export function agentRows(
 export function requireAvailable(rows: AgentRow[], name: string): AgentRow {
 	const row = rows.find((r) => r.name === name);
 	if (!row) throw new Error(`agent "${name}" tidak terdaftar`);
+	if (row.tidakAndal)
+		throw new Error(
+			`agent "${name}" tidak andal (gagal probe); jalankan /rempug untuk mengujinya lagi`,
+		);
 	if (row.status === "hilang")
 		throw new Error(
 			`agent "${name}" hilang: pane ${row.tmux} tidak ada lagi di tmux`,
