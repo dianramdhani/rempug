@@ -17,18 +17,20 @@ import { registerAgent } from "../src/core/registry.js";
 import type { TmuxOpts } from "../src/core/tmux.js";
 import { tmuxTransport } from "../src/core/transport.js";
 
-/** Membuat direktori sementara yang dihapus otomatis setelah uji selesai. */
-export function tmp(t: TestContext): string {
+const direktoriSementara: string[] = [];
+process.on("exit", () => {
+	for (const dir of direktoriSementara)
+		rmSync(dir, { recursive: true, force: true });
+});
+
+/**
+ * Membuat direktori sementara. Penghapusannya ditunda sampai proses uji berakhir: hook `t.after` berjalan
+ * menurut urutan pendaftaran, jadi menghapus di sana berpapasan dengan ledger yang belum ditutup dan agent
+ * palsu yang masih menulis (ENOTEMPTY di runner yang lambat). Saat proses keluar semuanya sudah ditutup.
+ */
+export function tmp(_t: TestContext): string {
 	const dir = mkdtempSync(join(tmpdir(), "rempug-"));
-	// Agent palsu atau proses CLI bisa masih menulis saat hook ini berjalan; ulangi bila direktori belum kosong.
-	t.after(() =>
-		rmSync(dir, {
-			recursive: true,
-			force: true,
-			maxRetries: 10,
-			retryDelay: 100,
-		}),
-	);
+	direktoriSementara.push(dir);
 	return dir;
 }
 
