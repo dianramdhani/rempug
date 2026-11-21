@@ -19,6 +19,8 @@ jobs:
   release:
     needs: ci
     runs-on: ubuntu-latest
+    # NPM_TOKEN disimpan sebagai secret environment "npm", jadi job harus menyebutnya.
+    environment: npm
     permissions:
       contents: write
       issues: write
