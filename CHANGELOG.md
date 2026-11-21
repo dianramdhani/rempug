@@ -1,3 +1,10 @@
+## [0.1.3](https://github.com/dianramdhani/rempug/compare/v0.1.2...v0.1.3) (2026-11-21)
+
+
+### Bug Fixes
+
+* stop flagging reads and other people's commits as agent mistakes ([4b57e20](https://github.com/dianramdhani/rempug/commit/4b57e20adfd5bc8a9a869ac1e694013ab430a281))
+
 ## [0.1.2](https://github.com/dianramdhani/rempug/compare/v0.1.1...v0.1.2) (2026-11-21)
 
 ## [0.1.1](https://github.com/dianramdhani/rempug/compare/v0.1.0...v0.1.1) (2026-11-21)
