@@ -183,7 +183,7 @@ function parsePorcelain(teks: string | undefined): Map<string, string> {
 }
 
 /**
- * Berkas yang berubah sejak tugas dikirim tetapi di luar cakupan tugas ini dan tugas edit aktif lain.
+ * Berkas yang berubah sejak tugas dikirim tetapi di luar cakupan tugas ini dan tugas edit lain yang berjalan bersamaan.
  * Hanya nama: bisa pelanggaran agent, bisa juga hasil edit user sendiri.
  */
 export function outsideScope(
@@ -193,9 +193,19 @@ export function outsideScope(
 ): string[] {
 	const awal = parsePorcelain(task.porcelain);
 	const kini = parsePorcelain(gitInfo(repo).porcelain);
+	// Tugas edit lain yang jendela waktunya beririsan juga mengubah berkas di repo ini, jadi perubahan
+	// di cakupan mereka bukan "di luar cakupan" milik tugas ini, walau mereka sudah selesai lebih dulu.
+	const akhir = task.repliedAt ?? ledger.now();
 	const milikLain = ledger
-		.activeEditTasks(task.repo)
-		.filter((t) => t.id !== task.id)
+		.listTasks(task.repo)
+		.filter(
+			(t) =>
+				t.id !== task.id &&
+				t.mode === "edit" &&
+				t.status !== "antri" &&
+				t.sentAt <= akhir &&
+				(t.repliedAt ?? Number.POSITIVE_INFINITY) >= task.sentAt,
+		)
 		.flatMap((t) => t.scope ?? []);
 	return [...kini]
 		.filter(([path, baris]) => awal.get(path) !== baris)

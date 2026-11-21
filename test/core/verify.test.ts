@@ -449,3 +449,44 @@ test("verifyTask hanya untuk tugas yang sedang memverifikasi", (t) => {
 	assert.throws(() => verifyTask(ledger, id), /berjalan/);
 	assert.throws(() => verifyTask(ledger, 999), /T999/);
 });
+
+test("outsideScope: perubahan tugas edit lain yang jendela waktunya beririsan tidak dianggap di luar cakupan", (t) => {
+	let jam = 100;
+	const repo = gitRepo(t, BERKAS);
+	const ledger = Ledger.open(join(tmp(t), "l.db"), { now: () => jam });
+	t.after(() => ledger.close());
+	const git = gitInfo(repo);
+	const buat = (scope: string[]) =>
+		ledger.createTask({
+			repo,
+			agent: "x",
+			mode: "edit",
+			scope,
+			brief: "b",
+			porcelain: git.porcelain,
+		});
+
+	const a = buat(["docs/**"]); // dikirim 100
+	jam = 101;
+	const b = buat(["src/**"]); // dikirim 101
+	jam = 105;
+	ledger.saveReply(a, "ok", "ok");
+	ledger.setStatus(a, "selesai"); // A selesai di tengah jendela B
+	jam = 108;
+	ledger.saveReply(b, "ok", "ok");
+	ledger.setStatus(b, "memverifikasi");
+	jam = 200;
+	const c = buat(["lib/**"]); // C dikirim jauh sesudah B selesai
+	jam = 205;
+	ledger.saveReply(c, "ok", "ok");
+
+	tulis(repo, "docs/x.md", "dari A\n");
+	tulis(repo, "lib/c.ts", "dari C\n");
+	tulis(repo, "catatan.txt", "milik siapa pun\n");
+	const task = ledger.getTask(b) as Task;
+	assert.deepEqual(
+		outsideScope(ledger, task, repo),
+		["catatan.txt", "lib/c.ts"],
+		"docs/x.md milik A (jendela beririsan) dikecualikan; lib/c.ts milik C (tidak beririsan) tetap dilaporkan",
+	);
+});

@@ -113,7 +113,7 @@ export async function tick(deps: TickDeps): Promise<string[]> {
 			if (keadaan === "error")
 				return sekali(
 					"limit",
-					`${kepala} limit: kuota atau batas pemakaian agent tercapai`,
+					`${kepala} limit: agent melaporkan galat limit, kuota, atau autentikasi; lihat layar agent`,
 					"macet",
 				);
 			if (keadaan === "bertanya")

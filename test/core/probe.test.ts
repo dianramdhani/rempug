@@ -20,7 +20,12 @@ async function siapkan(
 ) {
 	const h = await ujiAgen(t, [{ name: "agy", ...spes }]);
 	const probe = (
-		extra: { ackTimeoutMs?: number; kandidat?: typeof CEPAT } = {},
+		extra: {
+			ackTimeoutMs?: number;
+			tenangMs?: number;
+			ackMaksMs?: number;
+			kandidat?: typeof CEPAT;
+		} = {},
 	) =>
 		probeAgent(
 			{
@@ -83,7 +88,7 @@ test("layar yang terus beranimasi saat idle ditandai animasiIdle", async (t) => 
 
 test("pointer diterima tetapi agent tidak menjalankan rempug: tanpa-ack, tidak dikirim ulang", async (t) => {
 	const s = await siapkan(t, {});
-	const hasil = await s.probe({ ackTimeoutMs: 700 });
+	const hasil = await s.probe({ ackTimeoutMs: 700, tenangMs: 150 });
 	assert.equal(hasil.status, "tanpa-ack");
 	assert.equal(hasil.dicoba, 1);
 	assert.equal(s.agen()?.tidakAndal, true);
@@ -93,7 +98,7 @@ test("pointer diterima tetapi agent tidak menjalankan rempug: tanpa-ack, tidak d
 
 test("teks tak pernah terkirim: semua kandidat dicoba, lalu tidak-andal dengan cuplikan layar", async (t) => {
 	const s = await siapkan(t, { env: { FAKE_NOENTER: "1" } });
-	const hasil = await s.probe({ ackTimeoutMs: 400 });
+	const hasil = await s.probe({ ackTimeoutMs: 400, tenangMs: 150 });
 	assert.equal(hasil.status, "tidak-andal");
 	assert.equal(hasil.dicoba, CEPAT.length);
 	assert.match(hasil.catatan ?? "", /tertahan di kotak input/);
@@ -104,7 +109,7 @@ test("teks tak pernah terkirim: semua kandidat dicoba, lalu tidak-andal dengan c
 
 test("agent yang menunggu izin: perlu-izin, bukan tidak-andal, dan tidak dijawab", async (t) => {
 	const s = await siapkan(t, { env: { FAKE_AFTER: "izin" } });
-	const hasil = await s.probe({ ackTimeoutMs: 700 });
+	const hasil = await s.probe({ ackTimeoutMs: 700, tenangMs: 150 });
 	assert.equal(hasil.status, "perlu-izin");
 	assert.equal(hasil.dicoba, 1);
 	assert.notEqual(s.agen()?.tidakAndal, true);
@@ -175,4 +180,53 @@ test("formatProbe: satu baris untuk siap dan untuk yang gagal", () => {
 		formatProbe({ nama: "x", status: "perlu-izin", dicoba: 1 }),
 		"x         ✗ perlu-izin",
 	);
+});
+
+test("agent lambat tetapi terus bekerja: probe menunggu sampai ack, bukan menyerah di batas dasar", async (t) => {
+	const s = await siapkan(t, { env: { ...ACK, FAKE_TUNDA_MS: "1800" } });
+	const hasil = await s.probe({
+		ackTimeoutMs: 400,
+		tenangMs: 900,
+		ackMaksMs: 8000,
+	});
+	assert.equal(hasil.status, "siap");
+	assert.equal(hasil.dicoba, 1);
+	assert.ok((hasil.ackMs ?? 0) >= 1500, `ack terlalu cepat: ${hasil.ackMs}`);
+	assert.equal(
+		s.diterima("agy").length,
+		1,
+		"pointer tidak boleh dikirim ulang selama agent bekerja",
+	);
+});
+
+test("agent bekerja sebentar lalu diam tanpa ack: menyerah setelah layar tenang, bukan di batas atas", async (t) => {
+	const s = await siapkan(t, {
+		env: { ...ACK, FAKE_TUNDA_MS: "800", FAKE_TUNDA_TANPA_ACK: "1" },
+	});
+	const mulai = Date.now();
+	const hasil = await s.probe({
+		ackTimeoutMs: 300,
+		tenangMs: 700,
+		ackMaksMs: 20_000,
+	});
+	assert.equal(hasil.status, "tanpa-ack");
+	assert.ok(
+		Date.now() - mulai < 10_000,
+		"harus menyerah setelah layar tenang, bukan menunggu batas atas",
+	);
+	assert.match(hasil.catatan ?? "", /PATH/);
+});
+
+test("batas atas membatasi agent yang bekerja tanpa henti", async (t) => {
+	const s = await siapkan(t, {
+		env: { ...ACK, FAKE_TUNDA_MS: "60000", FAKE_TUNDA_TANPA_ACK: "1" },
+	});
+	const mulai = Date.now();
+	const hasil = await s.probe({
+		ackTimeoutMs: 200,
+		tenangMs: 5000,
+		ackMaksMs: 1500,
+	});
+	assert.equal(hasil.status, "tanpa-ack");
+	assert.ok(Date.now() - mulai < 6000);
 });

@@ -15,11 +15,15 @@ const POLA_IZIN = [
 	/press enter to (continue|confirm|approve)/i,
 	/do you want to (proceed|run|allow|make this edit|create)/i,
 	/izinkan/i,
+	// Dialog yang muncul saat agent pertama kali dibuka di sebuah folder.
+	/do you trust|trust (this|the|these) (folder|project|contents|workspace|directory)/i,
 ];
 
 const POLA_LIMIT = [
 	/rate limit|usage limit|quota (exceeded|reached)|limit (reached|exceeded)/i,
 	/hit your (usage )?limit|too many requests|\b429\b|credit balance|out of credits/i,
+	// Galat autentikasi: agent tidak bisa memanggil modelnya, sama buntunya dengan kehabisan kuota.
+	/token refresh failed|\b401\b|unauthorized|authentication (failed|error)|invalid api key|not logged in|log ?in again|login required/i,
 ];
 
 /** Jumlah baris terakhir yang dianggap "saat ini"; yang lebih atas adalah riwayat. */

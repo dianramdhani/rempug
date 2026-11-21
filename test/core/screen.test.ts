@@ -25,6 +25,8 @@ test("menunggu-izin dikenali dari pola umum, dan pola tambahan profil", () => {
 		"Continue [Y/n]",
 		"Press enter to confirm",
 		"Izinkan perintah ini?",
+		"Do you trust the contents of this project?",
+		"Trust this folder? Codex can read, edit, and run files here",
 	]) {
 		assert.equal(
 			klasifikasi({ ...dasar, baris: ["...", teks, "> "] }),
@@ -53,6 +55,10 @@ test("error limit dikenali", () => {
 		"429 Too Many Requests",
 		"Quota exceeded for this model",
 		"Your credit balance is too low",
+		"Token refresh failed: 401",
+		"Error: 401 Unauthorized",
+		"Authentication failed, please log in again",
+		"Invalid API key provided",
 	]) {
 		assert.equal(klasifikasi({ ...dasar, baris: [teks] }), "error", teks);
 	}

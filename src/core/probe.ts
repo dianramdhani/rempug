@@ -4,7 +4,7 @@ import { RempugError } from "./errors.js";
 import type { Ledger } from "./ledger.js";
 import { KANDIDAT, type Profil } from "./profile.js";
 import { type Agent, readAgents, updateAgent } from "./registry.js";
-import { klasifikasi, tokenDiLayar } from "./screen.js";
+import { hashLayar, klasifikasi, tokenDiLayar } from "./screen.js";
 import { pointer } from "./send.js";
 import { listPanes, type TmuxOpts } from "./tmux.js";
 import type { Transport } from "./transport.js";
@@ -17,7 +17,12 @@ export interface ProbeDeps {
 	repo: string;
 	/** Kombinasi yang dicoba berurutan; bawaannya `KANDIDAT`. */
 	kandidat?: Profil[];
+	/** Batas dasar menunggu ack (ms); sesudahnya probe hanya menyerah bila layar sudah tenang. */
 	ackTimeoutMs?: number;
+	/** Layar tidak berubah selama ini dianggap agent berhenti (ms). */
+	tenangMs?: number;
+	/** Batas atas mutlak menunggu satu kandidat (ms), walau layar masih berubah. */
+	ackMaksMs?: number;
 	baselineMs?: number;
 	/** Pembaca versi CLI agent; bawaannya menjalankan `<jenis> --version`. */
 	versi?: (jenis: string) => string | undefined;
@@ -55,17 +60,47 @@ export function versiAgent(jenis: string): string | undefined {
 		?.trim();
 }
 
+interface BatasAck {
+	dasarMs: number;
+	tenangMs: number;
+	maksMs: number;
+}
+
+/**
+ * Menunggu agent membaca brief. Model sungguhan bisa butuh puluhan detik, jadi selama layarnya masih
+ * berubah (agent bekerja) probe terus menunggu sampai batas atas; ia hanya menyerah bila lewat batas dasar
+ * dan layar sudah tenang. Spinner dan timer tidak dihitung sebagai perubahan.
+ */
 async function tungguAck(
 	ledger: Ledger,
+	transport: Transport,
+	target: string,
 	id: number,
-	batasMs: number,
+	batas: BatasAck,
 ): Promise<boolean> {
-	const akhir = Date.now() + batasMs;
-	while (Date.now() < akhir) {
+	const mulai = Date.now();
+	const ambil = (lama: string) => {
+		try {
+			return hashLayar(transport.layar(target, 40));
+		} catch {
+			return lama;
+		}
+	};
+	let hash = ambil("");
+	let berubahPada = mulai;
+	for (;;) {
 		if (ledger.getTask(id)?.ackedAt !== undefined) return true;
-		await sleep(40);
+		const kini = Date.now();
+		if (kini - mulai >= batas.maksMs) return false;
+		const baru = ambil(hash);
+		if (baru !== hash) {
+			hash = baru;
+			berubahPada = kini;
+		}
+		if (kini - mulai >= batas.dasarMs && kini - berubahPada >= batas.tenangMs)
+			return false;
+		await sleep(120);
 	}
-	return ledger.getTask(id)?.ackedAt !== undefined;
 }
 
 const cuplik = (baris: string[]) =>
@@ -93,7 +128,11 @@ export async function probeAgent(
 		);
 
 	const kandidat = deps.kandidat ?? KANDIDAT;
-	const ackTimeout = deps.ackTimeoutMs ?? 12_000;
+	const batas: BatasAck = {
+		dasarMs: deps.ackTimeoutMs ?? 20_000,
+		tenangMs: deps.tenangMs ?? 4000,
+		maksMs: deps.ackMaksMs ?? 90_000,
+	};
 	const baseline = deps.baselineMs ?? 1500;
 
 	const hash = new Set<string>();
@@ -121,7 +160,7 @@ export async function probeAgent(
 		const mulai = Date.now();
 		try {
 			await transport.kirim(agent.tmux, pointer(id), profil);
-			if (await tungguAck(ledger, id, ackTimeout)) {
+			if (await tungguAck(ledger, transport, agent.tmux, id, batas)) {
 				const ackMs = Date.now() - mulai;
 				await sleep(Math.min(1500, baseline));
 				const baris = transport
@@ -159,7 +198,8 @@ export async function probeAgent(
 					nama,
 					status: "tidak-andal",
 					dicoba,
-					catatan: "batas pemakaian agent tercapai; coba lagi nanti",
+					catatan:
+						"agent melaporkan galat (limit, kuota, atau autentikasi); periksa `layar <agent>`, lalu login atau coba lagi nanti",
 				};
 				break;
 			}
@@ -171,7 +211,7 @@ export async function probeAgent(
 					status: "tanpa-ack",
 					dicoba,
 					catatan:
-						"pointer diterima tetapi agent tidak menjalankan rempug (kemungkinan menunggu izin atau tidak mengikuti protokol)",
+						"pointer diterima tetapi agent tidak menjalankan rempug (kemungkinan: `rempug` tidak ada di PATH shell agent, agent menunggu izin, atau tidak mengikuti protokol; lihat `layar <agent>`)",
 				};
 				break;
 			} else alasan = "dibuang";

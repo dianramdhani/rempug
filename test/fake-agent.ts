@@ -6,6 +6,8 @@
  *  - menu   : kotak input berisi sisa "x" (butuh Ctrl-U) dan Enter pertama ditelan.
  * Perilaku tambahan lewat env:
  *  - FAKE_ACK=1      : membaca brief (rempug brief) begitu menerima pointer, seperti agent sungguhan.
+ *  - FAKE_TUNDA_MS=n : sebelum ack, "bekerja" selama n ms dengan teks kemajuan yang terus berubah (seperti model sungguhan).
+ *  - FAKE_TUNDA_TANPA_ACK=1 : bekerja selama FAKE_TUNDA_MS lalu diam tanpa pernah ack.
  *  - FAKE_NOENTER=1  : mengabaikan Enter, jadi teks tertahan di kotak input.
  *  - FAKE_SPIN=1     : layar terus berubah (spinner) walau idle.
  *  - FAKE_AFTER=ask|izin|limit : tampilkan pertanyaan, prompt izin, atau pesan limit setelah menerima baris.
@@ -91,11 +93,33 @@ async function protokol(id: number): Promise<void> {
 	cli(["reply", `T${id}`], "HASIL: selesai\nBUKTI: ok");
 }
 
+/** Meniru model yang sedang bekerja: teks kemajuan berubah (huruf, bukan angka) selama `ms`. */
+async function bekerja(ms: number): Promise<void> {
+	const kata = [
+		"membaca",
+		"menimbang",
+		"mencari",
+		"memeriksa",
+		"menyusun",
+		"menulis",
+		"menguji",
+		"merapikan",
+	];
+	for (let t = 0, i = 0; t < ms; t += 250, i++) {
+		transcript += `* ${kata[i % kata.length]} ${"x".repeat(1 + (i % 5))}\n`;
+		render();
+		await new Promise((r) => setTimeout(r, 250));
+	}
+}
+
 async function accept(line: string): Promise<void> {
 	if (out) appendFileSync(out, `${line}\n`);
 	transcript += `you: ${line}\n`;
 	const brief = /rempug brief T(\d+)/.exec(line);
-	if (process.env.FAKE_ACK && brief) await ack(Number(brief[1]));
+	if (brief && process.env.FAKE_TUNDA_MS)
+		await bekerja(Number(process.env.FAKE_TUNDA_MS));
+	if (process.env.FAKE_ACK && brief && !process.env.FAKE_TUNDA_TANPA_ACK)
+		await ack(Number(brief[1]));
 	if (process.env.FAKE_CLI && brief) await protokol(Number(brief[1]));
 	const after = process.env.FAKE_AFTER;
 	if (after === "ask") transcript += "Which option do you prefer, A or B?\n";
