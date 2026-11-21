@@ -245,3 +245,23 @@ test("penanda sibuk didahulukan dari teks yang tertahan di kotak input", () => {
 		"bekerja",
 	);
 });
+
+test("galat autentikasi opencode di tata letak dua kolom: terlewat pada jendela 8 baris, tertangkap pada jendela layar penuh", () => {
+	const layar = layarAsli("opencode-galat-401");
+	// Jendela bawaan sengaja sempit supaya riwayat lama di atas layar tidak dianggap keadaan saat ini.
+	assert.notEqual(klasifikasi({ baris: layar, berubah: false }), "error");
+	// Probe memeriksa layar yang masih baru, jadi seluruh layar boleh dibaca.
+	assert.equal(
+		klasifikasi({ baris: layar, berubah: false, jendela: 60 }),
+		"error",
+	);
+});
+
+test("jendela lebar tidak mengubah hasil layar yang tidak memuat galat", () => {
+	for (const nama of ["codex-selesai", "agy-selesai", "codex-bekerja"])
+		assert.equal(
+			klasifikasi({ baris: layarAsli(nama), berubah: false, jendela: 60 }),
+			klasifikasi({ baris: layarAsli(nama), berubah: false }),
+			nama,
+		);
+});

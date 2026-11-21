@@ -8,6 +8,7 @@
  *  - FAKE_ACK=1      : membaca brief (rempug brief) begitu menerima pointer, seperti agent sungguhan.
  *  - FAKE_TUNDA_MS=n : sebelum ack, "bekerja" selama n ms dengan teks kemajuan yang terus berubah (seperti model sungguhan).
  *  - FAKE_TUNDA_TANPA_ACK=1 : bekerja selama FAKE_TUNDA_MS lalu diam tanpa pernah ack.
+ *  - FAKE_GALAT_JAUH=1 : menampilkan "Token refresh failed: 401" lalu 14 baris sidebar, seperti tata letak opencode.
  *  - FAKE_SIBUK=1    : selalu menampilkan penanda sibuk statis "esc to interrupt" (layar diam walau agent sedang bekerja).
  *  - FAKE_NOENTER=1  : mengabaikan Enter, jadi teks tertahan di kotak input.
  *  - FAKE_LAMBAT_MS=n : memproses Enter n ms setelah diterima (meniru runner CI yang lambat).
@@ -29,10 +30,14 @@ let inPaste = false;
 let transcript = "";
 let frame = 0;
 
+const GALAT_JAUH = process.env.FAKE_GALAT_JAUH
+	? `Token refresh failed: 401\n${Array.from({ length: 14 }, (_, i) => `  sidebar baris ${i + 1}`).join("\n")}\n`
+	: "";
+
 function render(): void {
 	const spin = process.env.FAKE_SPIN ? ` ${"|/-\\"[frame++ % 4]}` : "";
 	process.stdout.write(
-		`\x1b[2J\x1b[Hfake-agent ${mode}${spin}\n${transcript}\n+------------+\n> ${buffer}${process.env.FAKE_SIBUK ? "\n• Working (12s • esc to interrupt)" : ""}`,
+		`\x1b[2J\x1b[Hfake-agent ${mode}${spin}\n${GALAT_JAUH}${transcript}\n+------------+\n> ${buffer}${process.env.FAKE_SIBUK ? "\n• Working (12s • esc to interrupt)" : ""}`,
 	);
 }
 

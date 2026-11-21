@@ -230,3 +230,15 @@ test("batas atas membatasi agent yang bekerja tanpa henti", async (t) => {
 	assert.equal(hasil.status, "tanpa-ack");
 	assert.ok(Date.now() - mulai < 6000);
 });
+
+test("galat autentikasi yang jauh di atas layar (tata letak opencode) membuat agent tidak-andal dengan alasan yang benar", async (t) => {
+	const s = await siapkan(t, { env: { FAKE_GALAT_JAUH: "1" } });
+	const hasil = await s.probe({ ackTimeoutMs: 400, tenangMs: 300 });
+	assert.equal(hasil.status, "tidak-andal");
+	assert.match(hasil.catatan ?? "", /galat \(limit, kuota, atau autentikasi\)/);
+	assert.equal(
+		hasil.dicoba,
+		1,
+		"tidak mencoba kombinasi lain: galat bukan soal cara kirim",
+	);
+});

@@ -102,6 +102,12 @@ export interface KlasifikasiInput {
 	kursorY?: number;
 	/** Layar baru saja berubah; selama itu agent dianggap bekerja. */
 	berubah: boolean;
+	/**
+	 * Jumlah baris tak kosong terakhir yang dibaca (bawaan 8). Sempit dengan sengaja: riwayat lama di atas layar
+	 * bukan keadaan saat ini. Probe membaca layar yang masih baru, dan tata letak dua kolom seperti opencode
+	 * menaruh pesan galat belasan baris di atas dasar layar, jadi probe memakai jendela yang lebar.
+	 */
+	jendela?: number;
 	/** Penanda unik pointer tugas, mis. `rempug brief T12`. */
 	token?: string;
 	polaIzin?: string[];
@@ -111,7 +117,9 @@ export interface KlasifikasiInput {
 /** Menggolongkan layar secara mekanis; tidak memakai token model sama sekali. */
 export function klasifikasi(masuk: KlasifikasiInput): Keadaan {
 	if (masuk.berubah) return "bekerja";
-	const akhir = tidakKosong(masuk.baris).slice(-BARIS_AKHIR).join("\n");
+	const akhir = tidakKosong(masuk.baris)
+		.slice(-(masuk.jendela ?? BARIS_AKHIR))
+		.join("\n");
 	const tambahan = (pola: string[] | undefined) =>
 		(pola ?? []).map((p) => new RegExp(p, "i"));
 	if ([...POLA_LIMIT, ...tambahan(masuk.polaLimit)].some((p) => p.test(akhir)))

@@ -1,7 +1,7 @@
 {
 	"name": "rempug",
 	"version": "0.1.4",
-	"description": "Distribusi kerja dari agent orkestrator ke agent CLI lain lewat tmux, hemat token.",
+	"description": "Bagi pekerjaan dari agent orkestrator ke agent CLI lain lewat tmux, dengan hasil yang diperiksa mesin.",
 	"keywords": [
 		"agent",
 		"orchestrator",

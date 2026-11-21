@@ -1,6 +1,6 @@
 {
 	"name": "rempug",
-	"description": "Delegasi kerja dari agent orkestrator ke agent CLI lain lewat tmux, hemat token dan terverifikasi mesin.",
+	"description": "Bagi pekerjaan dari agent orkestrator ke agent CLI lain lewat tmux, dengan hasil yang diperiksa mesin.",
 	"license": "MIT",
 	"keywords": ["agent", "orchestrator", "tmux", "mcp"]
 }

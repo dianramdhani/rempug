@@ -7,7 +7,7 @@
 		{
 			"name": "rempug",
 			"source": "./",
-			"description": "Delegasi kerja dari agent orkestrator ke agent CLI lain lewat tmux, hemat token dan terverifikasi mesin."
+			"description": "Bagi pekerjaan dari agent orkestrator ke agent CLI lain lewat tmux, dengan hasil yang diperiksa mesin."
 		}
 	],
 	"description": "Plugin rempug: delegasi kerja ke agent CLI lain lewat tmux."

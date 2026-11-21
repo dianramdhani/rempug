@@ -183,7 +183,13 @@ export async function probeAgent(
 			const { baris, kursorY } = transport.tampak(agent.tmux);
 			layarAkhir = baris;
 			const token = `rempug brief T${id}`;
-			const keadaan = klasifikasi({ baris, kursorY, berubah: false, token });
+			const keadaan = klasifikasi({
+				baris,
+				kursorY,
+				berubah: false,
+				token,
+				jendela: 60,
+			});
 			if (keadaan === "menunggu-izin") {
 				hasil = {
 					nama,
