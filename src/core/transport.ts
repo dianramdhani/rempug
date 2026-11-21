@@ -9,6 +9,8 @@ export interface Transport {
 	tekan(target: string, keys: string[]): Promise<void>;
 	/** Isi layar pane (`baris` terakhir). */
 	layar(target: string, baris?: number): string;
+	/** Baris yang tampak di pane beserta baris tempat kursor berada (dihitung dari atas). */
+	tampak(target: string): { baris: string[]; kursorY: number | undefined };
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -39,6 +41,20 @@ export function tmuxTransport(opts: TmuxOpts = {}): Transport {
 			}
 			await sleep(profil.jeda_ms);
 			await tekan(target, profil.submit);
+		},
+		tampak(target) {
+			const layar = runTmux(["capture-pane", "-p", "-t", tujuan(target)], opts);
+			if (layar.status !== 0)
+				throw new Error(`tmux capture-pane gagal: ${layar.stderr.trim()}`);
+			const kursor = runTmux(
+				["display-message", "-p", "-t", tujuan(target), "#{cursor_y}"],
+				opts,
+			);
+			const y = Number.parseInt(kursor.stdout.trim(), 10);
+			return {
+				baris: layar.stdout.replace(/\n$/, "").split("\n"),
+				kursorY: Number.isNaN(y) ? undefined : y,
+			};
 		},
 		layar(target, baris = 40) {
 			const result = runTmux(

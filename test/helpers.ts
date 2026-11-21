@@ -4,6 +4,7 @@ import {
 	copyFileSync,
 	mkdirSync,
 	mkdtempSync,
+	readFileSync,
 	rmSync,
 	writeFileSync,
 } from "node:fs";
@@ -11,7 +12,10 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
+import { Ledger, ledgerPath } from "../src/core/ledger.js";
+import { registerAgent } from "../src/core/registry.js";
 import type { TmuxOpts } from "../src/core/tmux.js";
+import { tmuxTransport } from "../src/core/transport.js";
 
 /** Membuat direktori sementara yang dihapus otomatis setelah uji selesai. */
 export function tmp(t: TestContext): string {
@@ -43,15 +47,13 @@ export function startTmux(t: TestContext) {
 	const opts: TmuxOpts = { socket };
 	const bin = tmp(t);
 	t.after(() => {
-		const args = ["-L", socket];
-		// tmux tidak menghapus berkas socket setelah kill-server, jadi path-nya diambil dulu lalu dihapus sendiri.
-		const path = spawnSync(
-			"tmux",
-			[...args, "display-message", "-p", "#{socket_path}"],
-			{ encoding: "utf8", env: tmuxEnv() },
-		).stdout.trim();
-		spawnSync("tmux", [...args, "kill-server"], { env: tmuxEnv() });
-		if (path) rmSync(path, { force: true });
+		spawnSync("tmux", ["-L", socket, "kill-server"], { env: tmuxEnv() });
+		// tmux tidak selalu menghapus berkas socket (mis. saat sesi terakhir dimatikan), jadi dihapus di sini.
+		const dir = join(
+			process.env.TMUX_TMPDIR || "/tmp",
+			`tmux-${process.getuid?.()}`,
+		);
+		rmSync(join(dir, socket), { force: true });
 	});
 	return {
 		opts,
@@ -143,4 +145,56 @@ export function gitRepo(
 	git("add", "-A");
 	git("commit", "-q", "-m", "awal");
 	return dir;
+}
+
+export interface SpesAgen {
+	name: string;
+	/** `normal`, `paste`, atau `menu`; lihat `fake-agent.ts`. */
+	mode?: string;
+	env?: Record<string, string>;
+}
+
+/**
+ * Menyalakan agent palsu di tmux terpisah, mendaftarkannya, dan membuka ledger yang dipakai bersama
+ * agent palsu itu (lewat XDG_STATE_HOME). `now` mengatur jam ledger.
+ */
+export async function ujiAgen(
+	t: TestContext,
+	agen: SpesAgen[],
+	opsi: { now?: () => number } = {},
+) {
+	const dir = tmp(t);
+	const tmux = startTmux(t);
+	const transport = tmuxTransport(tmux.opts);
+	const registryFile = join(dir, "registry.json");
+	const stateHome = join(dir, "state");
+	const ledger = Ledger.open(ledgerPath({ XDG_STATE_HOME: stateHome }), {
+		now: opsi.now,
+	});
+	t.after(() => ledger.close());
+	const log = (nama: string) => join(dir, `${nama}.log`);
+	for (const [i, a] of agen.entries()) {
+		const sesi = String(i + 1);
+		tmux.newFakeAgent(sesi, dir, [a.mode ?? "normal", log(a.name)], {
+			XDG_STATE_HOME: stateHome,
+			...a.env,
+		});
+		await until(() =>
+			transport.layar(`${sesi}:0.0`).includes("fake-agent") ? true : undefined,
+		);
+		registerAgent(registryFile, {
+			name: a.name,
+			kind: "codex",
+			tmux: `${sesi}:0.0`,
+			capabilities: [],
+		});
+	}
+	const diterima = (nama: string): string[] => {
+		try {
+			return readFileSync(log(nama), "utf8").trim().split("\n").filter(Boolean);
+		} catch {
+			return [];
+		}
+	};
+	return { dir, tmux, transport, registryFile, ledger, diterima };
 }

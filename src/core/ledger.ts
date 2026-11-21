@@ -337,6 +337,11 @@ export class Ledger {
 		return row ? toTask(row) : undefined;
 	}
 
+	/** Menghapus tugas beserta snapshot dan event-nya (mis. tugas uji probe). */
+	deleteTask(id: number): void {
+		this.#db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
+	}
+
 	/** Tugas repo ini dengan status tertentu, berurutan menurut ID. */
 	tasksWhere(repo: string, statuses: readonly TaskStatus[]): Task[] {
 		const marks = statuses.map(() => "?").join(", ");
