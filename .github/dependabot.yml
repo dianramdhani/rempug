@@ -6,6 +6,14 @@ updates:
       interval: weekly
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      # Tipe Node harus mengikuti Node minimum yang didukung (22.13), bukan yang terbaru.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # semantic-release 26 mensyaratkan Node >= 26.13, sedangkan workflow rilis memakai Node 24.
+      # Naikkan hanya bersama pindah Node di release.yml, dengan percobaan rilis.
+      - dependency-name: "semantic-release"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
