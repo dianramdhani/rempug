@@ -35,6 +35,20 @@ export async function until<T>(fn: () => T | undefined, ms = 4000): Promise<T> {
 	}
 }
 
+/** Seperti `until`, tetapi untuk pemeriksaan asinkron. */
+export async function untilAsync<T>(
+	fn: () => Promise<T | undefined>,
+	ms = 4000,
+): Promise<T> {
+	const end = Date.now() + ms;
+	for (;;) {
+		const value = await fn();
+		if (value !== undefined) return value;
+		if (Date.now() > end) throw new Error("untilAsync: waktu habis");
+		await new Promise((resolve) => setTimeout(resolve, 25));
+	}
+}
+
 function tmuxEnv(): NodeJS.ProcessEnv {
 	const env = { ...process.env };
 	delete env.TMUX;

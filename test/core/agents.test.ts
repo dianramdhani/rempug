@@ -176,3 +176,31 @@ test("formatAgentRow: satu baris berisi nama, status, kemampuan, dan tugas", () 
 		"codex     hilang  -",
 	);
 });
+
+test("formatAgentRow: tidak-andal, ack, dan catatan ikut ditampilkan", () => {
+	assert.equal(
+		formatAgentRow({
+			name: "opencode",
+			kind: "opencode",
+			tmux: "3:0.0",
+			capabilities: [],
+			status: "siap",
+			tugas: undefined,
+			tidakAndal: true,
+			catatan: "teks tertahan",
+		}),
+		"opencode  tidak-andal  -  — teks tertahan",
+	);
+	assert.equal(
+		formatAgentRow({
+			name: "agy",
+			kind: "agy",
+			tmux: "1:0.0",
+			capabilities: ["playwright"],
+			status: "siap",
+			tugas: undefined,
+			ukur: { ackMs: 1840 },
+		}),
+		"agy       siap  playwright  ack 1.8s",
+	);
+});

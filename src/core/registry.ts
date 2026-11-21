@@ -29,6 +29,8 @@ export interface Agent {
 	ukur?: Ukur;
 	/** Pengiriman gagal berturut-turut; dua kali memicu probe ulang. */
 	gagalBeruntun?: number;
+	/** Catatan hasil probe terakhir bila agent tidak siap. */
+	catatan?: string;
 }
 
 type Env = Record<string, string | undefined>;

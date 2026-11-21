@@ -136,6 +136,7 @@ export async function probeAgent(
 					tidakAndal: false,
 					versi,
 					gagalBeruntun: 0,
+					catatan: undefined,
 					ukur: { ackMs, animasiIdle, penandaSiap, probeAt: ledger.now() },
 				});
 				return hasil;
@@ -193,6 +194,7 @@ export async function probeAgent(
 	if (hasil.status !== "perlu-izin")
 		updateAgent(deps.registryFile, nama, {
 			tidakAndal: true,
+			catatan: hasil.catatan,
 			versi,
 			ukur: { ...agent.ukur, animasiIdle, probeAt: ledger.now() },
 		});
@@ -221,4 +223,12 @@ export async function reprobeJikaUsang(
 	const agent = readAgents(deps.registryFile).find((a) => a.name === nama);
 	if (!agent || !isStale(agent, versiSekarang)) return undefined;
 	return probeAgent(deps, nama);
+}
+
+/** Satu baris kesiapan agent untuk laporan `/rempug`. */
+export function formatProbe(hasil: ProbeHasil): string {
+	const nama = hasil.nama.padEnd(10);
+	if (hasil.status === "siap")
+		return `${nama}✓ siap  ack ${((hasil.ackMs ?? 0) / 1000).toFixed(1)} dtk`;
+	return `${nama}✗ ${hasil.status}  ${hasil.catatan ?? ""}`.trimEnd();
 }

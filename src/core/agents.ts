@@ -51,7 +51,13 @@ export function requireAvailable(rows: AgentRow[], name: string): AgentRow {
 }
 
 export function formatAgentRow(row: AgentRow): string {
+	const status = row.tidakAndal ? "tidak-andal" : row.status;
 	const kemampuan = row.capabilities.length ? row.capabilities.join(",") : "-";
 	const tugas = row.tugas === undefined ? "" : `  T${row.tugas}`;
-	return `${row.name.padEnd(10)}${row.status}  ${kemampuan}${tugas}`;
+	const ack =
+		row.ukur?.ackMs === undefined
+			? ""
+			: `  ack ${(row.ukur.ackMs / 1000).toFixed(1)}s`;
+	const catatan = row.tidakAndal && row.catatan ? `  — ${row.catatan}` : "";
+	return `${row.name.padEnd(10)}${status}  ${kemampuan}${tugas}${ack}${catatan}`;
 }

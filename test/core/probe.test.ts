@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+	formatProbe,
 	isStale,
 	probeAgent,
 	reprobeJikaUsang,
@@ -154,4 +155,24 @@ test("reprobeJikaUsang hanya memprobe ulang agent yang usang", async (t) => {
 test("versiAgent mengembalikan baris pertama --version, atau kosong bila tidak ada", () => {
 	assert.match(versiAgent("node") ?? "", /^v\d+/);
 	assert.equal(versiAgent("perintah-yang-tidak-ada-sama-sekali"), undefined);
+});
+
+test("formatProbe: satu baris untuk siap dan untuk yang gagal", () => {
+	assert.equal(
+		formatProbe({ nama: "agy", status: "siap", ackMs: 1840, dicoba: 1 }),
+		"agy       ✓ siap  ack 1.8 dtk",
+	);
+	assert.equal(
+		formatProbe({
+			nama: "opencode",
+			status: "tidak-andal",
+			dicoba: 7,
+			catatan: "teks tertahan di kotak input",
+		}),
+		"opencode  ✗ tidak-andal  teks tertahan di kotak input",
+	);
+	assert.equal(
+		formatProbe({ nama: "x", status: "perlu-izin", dicoba: 1 }),
+		"x         ✗ perlu-izin",
+	);
 });
