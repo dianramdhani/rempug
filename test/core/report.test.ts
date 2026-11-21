@@ -4,6 +4,7 @@ import type { Task } from "../../src/core/ledger.js";
 import {
 	barisLog,
 	formatLaporan,
+	formatLaporanManusia,
 	formatLaporanMd,
 	formatShow,
 } from "../../src/core/report.js";
@@ -134,4 +135,157 @@ test("formatLaporanMd menghasilkan Markdown dengan judul dan daftar", () => {
 	]);
 	assert.match(md, /^# Laporan rempug/);
 	assert.match(md, /## Selesai \(1\)\n\n- T1 codex ✓ ok/);
+});
+
+const TERLARANG =
+	/\bT\d+\b|[✓✗⚠⏱−→]|--|\bCEK\b|\bscope\b|\bwatch\b|\bantrean\b|\bterima\b|\back\b/;
+// Tanpa flag i: label internal CEK ditulis kapital, sedangkan "Cek" adalah kata biasa dalam judul tugas.
+const brief = (tujuan: string, cakupan = "baca") =>
+	`TUJUAN: ${tujuan}\nCAKUPAN: ${cakupan}\nLANGKAH:\n1. a\nCEK: ${cakupan.startsWith("edit") ? "true" : "-"}\nBALASAN: b`;
+
+test("laporan untuk manusia: kalimat biasa, tanpa ID tugas, simbol, atau istilah internal", () => {
+	const tasks = [
+		tugas({
+			id: 12,
+			agent: "codex",
+			brief: brief("Ubah kolom tabel Devices", "edit src/**"),
+			verify: verify("T12 codex ✓ 3 file +41/−7 | scope OK | tsc ✓", {
+				perubahan: [
+					{ path: "src/a.ts", status: "M", plus: 30, minus: 5 },
+					{ path: "src/b.ts", status: "A", plus: 11, minus: 2 },
+					{ path: "src/c.ts", status: "D", plus: 0, minus: 0 },
+				],
+				plus: 41,
+				minus: 7,
+				luarCakupan: [],
+				cek: [{ label: "tsc", ok: true, ekor: "" }],
+			}),
+		}),
+		tugas({
+			id: 13,
+			agent: "agy",
+			mode: "browser",
+			brief: brief("Periksa halaman Devices lewat browser", "browser"),
+			verify: verify("T13 agy ✓ browser | ok", { perubahan: [], cek: [] }),
+			replySummary:
+				"HASIL: halaman terbuka dengan 922 device\\nBUKTI: ...".replace(
+					"\\n",
+					"\n",
+				),
+		}),
+		tugas({
+			id: 14,
+			agent: "codex",
+			status: "gagal",
+			brief: brief("Rapikan impor", "edit lib/**"),
+			verify: verify("T14 codex ✗ | tsc ✗(2)", {
+				perubahan: [],
+				cek: [{ label: "tsc", ok: false, gagal: 2, ekor: "error" }],
+			}),
+		}),
+		tugas({
+			id: 15,
+			agent: "agy",
+			status: "berjalan",
+			mode: "browser",
+			brief: brief("Bandingkan dua halaman"),
+		}),
+		tugas({
+			id: 16,
+			agent: "agy",
+			status: "berjalan",
+			flag: "menunggu-izin",
+			mode: "browser",
+			brief: brief("Buka laporan bulanan"),
+		}),
+		tugas({
+			id: 17,
+			agent: "codex",
+			status: "pelanggaran",
+			brief: brief("Ubah tema", "edit src/**"),
+			verify: verify(
+				"T17 codex ⚠ pelanggaran: HEAD berubah (aaaaaaa→bbbbbbb)",
+				{
+					pelanggaran: "HEAD berubah (aaaaaaa→bbbbbbb)",
+					perubahan: [],
+					cek: [],
+				},
+			),
+		}),
+		tugas({
+			id: 18,
+			agent: "agy",
+			status: "macet",
+			mode: "browser",
+			brief: brief("Cek notifikasi"),
+		}),
+	];
+	const teks = formatLaporanManusia(tasks);
+	assert.doesNotMatch(teks, TERLARANG, teks);
+	assert.match(teks, /Ubah kolom tabel Devices/);
+	assert.match(
+		teks,
+		/mengubah 1 berkas, menambah 1 berkas baru, dan menghapus 1 berkas/,
+	);
+	assert.match(teks, /41 baris ditambah, 7 dihapus/);
+	assert.match(teks, /halaman terbuka dengan 922 device/);
+	assert.match(teks, /pengecekan tsc gagal \(2 masalah\)/);
+	assert.match(teks, /sedang dikerjakan/);
+	assert.match(teks, /menunggu persetujuan Anda di sesi agy/);
+	assert.match(teks, /mengubah riwayat git tanpa izin/);
+	assert.match(teks, /terhenti dan tidak merespons/);
+	assert.match(teks, /^Selesai/m);
+	assert.match(teks, /^Sedang berjalan/m);
+	assert.match(teks, /^Perlu perhatian/m);
+});
+
+test("laporan manusia: perubahan di luar area tugas disebut dengan nama berkas, tanpa istilah teknis", () => {
+	const teks = formatLaporanManusia([
+		tugas({
+			brief: brief("Ubah kolom", "edit src/**"),
+			verify: verify("x", {
+				perubahan: [{ path: "src/a.ts", status: "M", plus: 1, minus: 0 }],
+				plus: 1,
+				minus: 0,
+				luarCakupan: ["lib/c.ts", "docs/x.md"],
+				cek: [],
+			}),
+		}),
+	]);
+	assert.doesNotMatch(teks, TERLARANG, teks);
+	assert.match(
+		teks,
+		/juga ada perubahan di luar area tugas: lib\/c\.ts, docs\/x\.md/,
+	);
+});
+
+test("laporan manusia: tanpa tugas dan ringkasan balasan yang panjang dipotong", () => {
+	assert.equal(
+		formatLaporanManusia([]),
+		"Belum ada pekerjaan yang didelegasikan.",
+	);
+	const panjang = formatLaporanManusia([
+		tugas({
+			mode: "browser",
+			brief: brief("Cek halaman", "browser"),
+			verify: verify("x", { perubahan: [], cek: [] }),
+			replySummary: `HASIL: ${"kata ".repeat(80)}`,
+		}),
+	]);
+	assert.ok(
+		panjang.split("\n").every((l) => l.length < 220),
+		panjang,
+	);
+	assert.match(panjang, /…/);
+});
+
+test("laporan manusia: brief yang tidak lolos validasi tetap menampilkan judulnya", () => {
+	const teks = formatLaporanManusia([
+		tugas({
+			mode: "browser",
+			status: "berjalan",
+			brief: "TUJUAN: Cek halaman login\nsisa brief rusak",
+		}),
+	]);
+	assert.match(teks, /Cek halaman login \(oleh codex\): sedang dikerjakan/);
 });

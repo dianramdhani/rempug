@@ -29,6 +29,7 @@ import { reply } from "./core/reply.js";
 import {
 	barisLog,
 	formatLaporan,
+	formatLaporanManusia,
 	formatLaporanMd,
 	formatShow,
 } from "./core/report.js";
@@ -409,13 +410,20 @@ const HANDLERS: Record<string, Handler> = {
 	},
 
 	report(args, h) {
-		const { values } = argumen(args, { md: { type: "string" } });
+		const { values } = argumen(args, {
+			md: { type: "string" },
+			manusia: { type: "boolean" },
+		});
 		const tasks = h.ledger.listTasks(h.repo);
 		if (values.md) {
 			writeFileSync(values.md, formatLaporanMd(h.repo, tasks));
 			return void h.io.stdout(`laporan ditulis ke ${values.md}`);
 		}
-		h.io.stdout(formatLaporan(h.repo, tasks));
+		h.io.stdout(
+			values.manusia
+				? formatLaporanManusia(tasks)
+				: formatLaporan(h.repo, tasks),
+		);
 	},
 
 	layar(args, h) {

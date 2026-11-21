@@ -46,6 +46,8 @@ yarn check
 BALASAN: HASIL, BUKTI, BLOCKER
 ```
 
+Pada tugas `baca` dan `browser`, `CEK` adalah deskripsi bukti yang harus dilaporkan agent (tidak dijalankan sebagai perintah); tulislah dengan kalimat biasa. Pada tugas `edit`, `CEK` adalah perintah shell yang dijalankan rempug.
+
 Agent adalah model murah: tulis brief selengkap dan sejelas mungkin, karena biayanya kecil dibanding mengulang pekerjaan yang salah. Tugas `edit` wajib punya minimal satu CEK. Tambahkan `teliti` untuk tugas berisiko agar rencana agent selalu sampai padamu.
 
 **Sebelum menunggu**, pastikan `watch` aktif. `send` memperingatkan bila tidak. Saat notifikasi kedaluwarsa Monitor datang dan masih ada tugas berjalan, pasang ulang segera.
@@ -67,9 +69,32 @@ Agent adalah model murah: tulis brief selengkap dan sejelas mungkin, karena biay
 
 Jangan mempercayai klaim agent; baris verifikasi dihitung rempug sendiri. Tugas `baca` dan `browser`: cek acak atas ringkasan. Tugas `edit`: pegang baris verifikasi (`+/−`, `scope`, cek) dan baca `diff <id> <berkas>` hanya untuk file berisiko, bukan semuanya. `⚠ di luar` hanya nama file: bisa pelanggaran agent, bisa juga edit user, jadi jangan menuduh. `⚠ tanpa paham` berarti agent melewati konfirmasi pemahaman.
 
-### Laporan ke user
+### Bahasa ke user (aturan keras)
 
-Hanya hasil: apakah tujuan user tercapai, bukti yang menentukan (mis. "tsc, biome, vitest lulus; 3 file berubah"), dan keputusan yang butuh user. Jangan menarasikan pengiriman, penantian, atau balasan agent. Agent dilarang `git commit/push/reset/checkout/stash`; perubahan mereka ada di working tree dan commit tetap mengikuti izin user.
+Semua yang kamu tulis kepada user harus bisa dipahami orang yang **tidak tahu rempug ada**. ID tugas, simbol, dan istilah internal hanya untuk kamu dan para agent.
+
+**Dilarang muncul di pesan ke user:**
+
+- ID tugas (`T12`, "tugas 3"), dan nomor apa pun yang hanya bermakna di dalam rempug.
+- Simbol status dan tanda baca teknis: `✓ ✗ ⚠ ⏱`, `+41/−7`, `-->`, `--flag`.
+- Istilah internal: antrean, `--after`, `--queue`, `terima`, `watch`, `probe`, `ack`, `pointer`, `scope` atau cakupan, `CEK`, `paham`, `klarifikasi`, `kejadian`, nama tool (`browser_tabs`, `snapshot`), dan kata `delegasi` atau `didelegasikan`.
+- Dugaan yang belum kamu periksa ("tampaknya berasal dari ...", "belum saya verifikasi"). Periksa dulu sendiri dengan `show <id> --penuh` dan `diff`, baru laporkan hasilnya.
+- Cerita tentang caramu bekerja ("saya kirim tanpa antrean", "nanti saya ambil dengan terima").
+
+**Yang boleh:** nama agent yang dipilih user (codex, agy), kata-kata biasa, dan nama berkas atau halaman yang dibicarakan.
+
+Untuk menjawab user, ambil bahan dari `report` dengan `manusia=true` (CLI: `rempug report --manusia`). Keluarannya sudah berupa kalimat biasa. **Jangan menyalin keluaran `log`, `show`, `ls`, `status`, atau kejadian `watch` ke user**; itu bahasa orkestrator. Tulis ulang dengan kata-katamu sendiri bila perlu.
+
+Bentuk laporan: (1) apakah yang diminta user sudah tercapai, (2) bukti yang menentukan dalam bahasa biasa, (3) keputusan yang benar-benar butuh user, bila ada. Jangan menarasikan pengiriman, penantian, atau balasan agent. Agent dilarang `git commit/push/reset/checkout/stash`; perubahan mereka ada di working tree dan commit tetap mengikuti izin user.
+
+| Jangan | Tulis begini |
+|---|---|
+| "T3 dan T4 ditandai gagal (✗) karena pengecekan browser_tabs. Antrean dengan after ditolak, jadi saya kirim tanpa antrean, lalu saya ambil dengan terima." | "Kedua agent berhasil membuka halaman Devices dan datanya tampil lengkap (922 perangkat, 8 kolom, semua permintaan ke server berhasil). Hasil keduanya sama." |
+| "T5 agy ✓ browser, scope ⚠ 1 di luar" | "agy selesai memeriksa halaman. Ada satu berkas yang berubah di luar tugasnya, yaitu README.md; kemungkinan hasil edit Anda sendiri." |
+| "limit pada T7, dialihkan ke codex" | "agy kehabisan kuota, jadi pekerjaan itu saya pindahkan ke codex." |
+| "T9 menunggu-izin" | "codex menunggu persetujuan Anda di sesinya (pilih izinkan). Pekerjaan lain tetap berjalan." |
+
+Bila rempug menandai tugas gagal tetapi balasan agent menunjukkan pekerjaannya benar, itu kemungkinan alarm palsu: periksa dulu, lalu laporkan **hasil pekerjaannya**, bukan alarmnya.
 
 ## Integrasi
 

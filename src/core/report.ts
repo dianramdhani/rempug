@@ -110,3 +110,125 @@ export function formatLaporanMd(repo: string, tasks: Task[]): string {
 	if (tasks.length === 0) bagian.push("Belum ada tugas.");
 	return `${bagian.join("\n\n")}\n`;
 }
+
+const POTONG = 140;
+
+const potong = (teks: string) =>
+	teks.length > POTONG ? `${teks.slice(0, POTONG - 1)}…` : teks;
+
+/** Baris pertama balasan agent tanpa label "HASIL:", dalam kata-kata agent sendiri. */
+function inti(teks: string | undefined): string | undefined {
+	const baris = (teks ?? "")
+		.split("\n")
+		.map((l) => l.trim().replace(/^(HASIL|RINGKASAN)\s*:\s*/i, ""))
+		.find(Boolean);
+	return baris ? potong(baris) : undefined;
+}
+
+function uraianPerubahan(hasil: VerifyResult): string {
+	const per = (st: string) =>
+		hasil.perubahan.filter((f) => f.status === st).length;
+	const bagian = [
+		[per("M"), (n: number) => `mengubah ${n} berkas`],
+		[per("A"), (n: number) => `menambah ${n} berkas baru`],
+		[per("D"), (n: number) => `menghapus ${n} berkas`],
+	]
+		.filter(([n]) => (n as number) > 0)
+		.map(([n, f]) => (f as (n: number) => string)(n as number));
+	if (bagian.length === 0) return "tidak ada berkas yang berubah";
+	const kalimat =
+		bagian.length === 1
+			? (bagian[0] as string)
+			: `${bagian.slice(0, -1).join(", ")}, dan ${bagian.at(-1)}`;
+	const garis =
+		hasil.plus > 0 || hasil.minus > 0
+			? ` (${hasil.plus} baris ditambah, ${hasil.minus} dihapus)`
+			: "";
+	return `${kalimat}${garis}`;
+}
+
+function uraianCek(hasil: VerifyResult): string | undefined {
+	if (hasil.cek.length === 0) return undefined;
+	const gagal = hasil.cek.filter((c) => !c.ok);
+	if (gagal.length === 0) return "semua pengecekan lulus";
+	return gagal
+		.map((c) =>
+			c.timeout
+				? `pengecekan ${c.label} melewati batas waktu`
+				: c.gagal
+					? `pengecekan ${c.label} gagal (${c.gagal} masalah)`
+					: `pengecekan ${c.label} gagal`,
+		)
+		.join(", ");
+}
+
+function uraianTugas(task: Task): string {
+	const hasil = hasilVerifikasi(task);
+	switch (task.status) {
+		case "selesai": {
+			if (task.mode !== "edit") return inti(task.replySummary) ?? "selesai";
+			const bagian = hasil
+				? [uraianPerubahan(hasil), uraianCek(hasil)]
+				: ["selesai"];
+			if (hasil?.luarCakupan.length)
+				bagian.push(
+					`juga ada perubahan di luar area tugas: ${hasil.luarCakupan.slice(0, 4).join(", ")}`,
+				);
+			return bagian.filter(Boolean).join("; ");
+		}
+		case "gagal":
+			return (
+				(hasil && uraianCek(hasil)) ||
+				inti(task.replySummary) ||
+				"tidak berhasil"
+			);
+		case "pelanggaran":
+			return "mengubah riwayat git tanpa izin (membuat commit atau berpindah cabang); hasilnya tidak dipercaya";
+		case "gagal-paham":
+			return "tidak memahami tugas setelah beberapa kali klarifikasi";
+		case "macet":
+			return "terhenti dan tidak merespons";
+		case "menunggu-klarifikasi":
+			return "menunggu jawaban atas pertanyaannya";
+		case "antri":
+			return "menunggu giliran";
+		default:
+			if (task.flag === "menunggu-izin")
+				return `menunggu persetujuan Anda di sesi ${task.agent}`;
+			if (task.flag === "bertanya")
+				return "mengajukan pertanyaan dan menunggu jawaban";
+			if (task.flag === "diterima-tanpa-ack")
+				return "menerima tugas tetapi belum mulai bekerja";
+			return "sedang dikerjakan";
+	}
+}
+
+function tujuanTugas(task: Task): string {
+	const tujuan = /^TUJUAN:[ \t]*(.+)$/m.exec(task.brief)?.[1]?.trim();
+	return tujuan ? tujuan.replace(/\s+/g, " ") : "tugas tanpa judul";
+}
+
+/**
+ * Laporan dalam kalimat biasa untuk manusia: tanpa ID tugas, simbol, atau istilah internal.
+ * Hanya nama agent (yang diberikan pengguna sendiri) dan kata-kata agent yang dipertahankan.
+ */
+export function formatLaporanManusia(tasks: Task[]): string {
+	if (tasks.length === 0) return "Belum ada pekerjaan yang didelegasikan.";
+	const k = kelompok(tasks);
+	const bermasalah = [...new Set([...k.gagal, ...k.blocker])];
+	const berjalan = k.berjalan.filter((t) => !bermasalah.includes(t));
+	const bagian: string[] = [];
+	const tulis = (judul: string, daftar: Task[]) => {
+		if (daftar.length === 0) return;
+		const baris = daftar
+			.slice(0, MAKS_PER_KELOMPOK)
+			.map((t) => `- ${tujuanTugas(t)} (oleh ${t.agent}): ${uraianTugas(t)}`);
+		if (daftar.length > MAKS_PER_KELOMPOK)
+			baris.push(`- dan ${daftar.length - MAKS_PER_KELOMPOK} lainnya`);
+		bagian.push(`${judul} (${daftar.length})\n${baris.join("\n")}`);
+	};
+	tulis("Selesai", k.selesai);
+	tulis("Sedang berjalan", berjalan);
+	tulis("Perlu perhatian", bermasalah);
+	return bagian.join("\n\n");
+}

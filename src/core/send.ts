@@ -217,6 +217,11 @@ export function readBrief(ledger: Ledger, id: number): string {
 				]
 			: []),
 		"Kerjakan langkah-langkah di atas persis sesuai isinya.",
+		...(edit
+			? []
+			: [
+					"CEK untuk tugas ini adalah bukti yang harus kamu laporkan di BUKTI; tidak dijalankan sebagai perintah.",
+				]),
 		`Setelah selesai, balas dengan \`rempug reply T${id}\` (isi lewat stdin): HASIL, BUKTI, BLOCKER. Bila tidak bisa menyelesaikan: \`rempug reply T${id} --gagal\`.`,
 	];
 	return [

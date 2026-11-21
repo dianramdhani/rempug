@@ -202,10 +202,10 @@ export async function jalankanMcp(dasar: Dasar, versi: string): Promise<void> {
 	);
 	alat(
 		"report",
-		"Laporan ringkas: selesai, berjalan, gagal, blocker. md menulis berkas Markdown.",
-		{ md: z.string().optional() },
+		"Laporan pekerjaan. Untuk menjawab MANUSIA selalu manusia=true (kalimat biasa tanpa ID atau simbol); tanpa itu keluarannya hanya untuk orkestrator. md menulis berkas Markdown.",
+		{ md: z.string().optional(), manusia: z.boolean().optional() },
 		(a) => ({
-			argv: ["report", ...opsi("md", a.md)],
+			argv: ["report", ...opsi("md", a.md), ...bendera("manusia", a.manusia)],
 		}),
 	);
 	alat(

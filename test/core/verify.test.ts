@@ -490,3 +490,50 @@ test("outsideScope: perubahan tugas edit lain yang jendela waktunya beririsan ti
 		"docs/x.md milik A (jendela beririsan) dikecualikan; lib/c.ts milik C (tidak beririsan) tetap dilaporkan",
 	);
 });
+
+test("tugas browser dan baca: CEK adalah deskripsi bukti, bukan perintah shell, jadi kalimat biasa tidak menggagalkan tugas", (t) => {
+	for (const mode of ["browser", "baca"] as const) {
+		const repo = gitRepo(t);
+		const ledger = Ledger.open(join(tmp(t), "l.db"));
+		t.after(() => ledger.close());
+		const id = ledger.createTask({
+			repo,
+			agent: "agy",
+			mode,
+			brief: `TUJUAN: Cek halaman\nCAKUPAN: ${mode}\nLANGKAH:\n1. Buka halaman.\nCEK: snapshot halaman Devices berhasil diambil dan daftar request tercatat.\nBALASAN: ringkasan`,
+		});
+		ledger.setStatus(id, "memverifikasi");
+		ledger.saveReply(
+			id,
+			"halaman terbuka, 6 GET 200",
+			"halaman terbuka, 6 GET 200",
+		);
+
+		const r = verifyTask(ledger, id);
+		assert.equal(r.ok, true, mode);
+		assert.deepEqual(r.cek, [], `${mode}: tidak ada perintah yang dijalankan`);
+		assert.equal(ledger.getTask(id)?.status, "selesai", mode);
+		assert.equal(r.linha, `T${id} agy ✓ ${mode} | halaman terbuka, 6 GET 200`);
+	}
+});
+
+test("readBrief tugas baca menjelaskan CEK sebagai bukti yang harus dilaporkan agent", async () => {
+	const { readBrief } = await import("../../src/core/send.js");
+	const dir = tmp({ after() {} } as never);
+	const ledger = Ledger.open(join(dir, "l.db"));
+	const id = ledger.createTask({
+		repo: "/r",
+		agent: "agy",
+		mode: "browser",
+		brief:
+			"TUJUAN: x\nCAKUPAN: browser\nLANGKAH:\n1. a\nCEK: snapshot berhasil\nBALASAN: b",
+	});
+	ledger.setStatus(id, "berjalan");
+	const teks = readBrief(ledger, id);
+	ledger.close();
+	assert.match(
+		teks,
+		/CEK untuk tugas ini adalah bukti yang harus kamu laporkan di BUKTI/,
+	);
+	assert.doesNotMatch(teks, /rempug paham/);
+});

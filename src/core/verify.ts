@@ -370,7 +370,9 @@ export function verifyTask(
 			`tugas T${id} berstatus ${task.status}; tidak sedang memverifikasi`,
 		);
 	const parsed = parseBrief(task.brief);
-	const cek = parsed.ok ? parsed.brief.cek : [];
+	// CEK dijalankan sebagai perintah shell hanya untuk tugas edit. Pada tugas baca dan browser ia adalah
+	// deskripsi bukti yang harus dilaporkan agent; menjalankannya sebagai shell menggagalkan tugas yang benar.
+	const cek = parsed.ok && task.mode === "edit" ? parsed.brief.cek : [];
 	const edit = task.mode === "edit";
 
 	const git = gitInfo(task.repo);

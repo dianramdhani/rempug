@@ -73,3 +73,23 @@ test("paket menyertakan skill dan plugin tetapi bukan uji maupun spec", () => {
 		assert.ok(pkg.files.includes(f), f);
 	for (const f of pkg.files) assert.ok(!/test|\.kiro/.test(f), f);
 });
+
+test("SKILL.md melarang ID, simbol, dan istilah internal di pesan ke user, dan mengarahkan ke report manusia", () => {
+	for (const pola of [
+		/Bahasa ke user \(aturan keras\)/,
+		/ID tugas/,
+		/✓ ✗ ⚠ ⏱/,
+		/report.*manusia=true/,
+		/rempug report --manusia/,
+		/Jangan menyalin keluaran `log`/,
+		/Dugaan yang belum kamu periksa/,
+		/alarm palsu/,
+		/deskripsi bukti yang harus dilaporkan agent/,
+	])
+		assert.match(skill, pola);
+});
+
+test("report manusia ada di CLI dan MCP", () => {
+	assert.match(baca("dist/src/commands.js"), /manusia/);
+	assert.match(baca("dist/src/mcp.js"), /manusia/);
+});
