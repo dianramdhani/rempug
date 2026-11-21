@@ -40,6 +40,20 @@ const kontrol = new AbortController();
 for (const sinyal of ["SIGINT", "SIGTERM"] as const)
 	process.on(sinyal, () => kontrol.abort());
 
+/** Bilangan positif dari variabel lingkungan; nilai lain diabaikan sehingga bawaan tetap berlaku. */
+function angka(nilai: string | undefined): number | undefined {
+	const n = Number(nilai);
+	return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+const ambang = Object.fromEntries(
+	Object.entries({
+		ackDetik: angka(process.env.REMPUG_ACK_DETIK),
+		diamDetik: angka(process.env.REMPUG_DIAM_DETIK),
+		macetDetik: angka(process.env.REMPUG_MACET_DETIK),
+	}).filter(([, v]) => v !== undefined),
+);
+
 process.exitCode = await run(process.argv.slice(2), {
 	env: process.env,
 	cwd: process.cwd(),
@@ -47,6 +61,8 @@ process.exitCode = await run(process.argv.slice(2), {
 		? { socket: process.env.REMPUG_TMUX_SOCKET }
 		: undefined,
 	sinyal: kontrol.signal,
+	tickOpsi: ambang,
+	watchMs: angka(process.env.REMPUG_WATCH_MS),
 	io: {
 		stdout: (teks) => void process.stdout.write(`${teks}\n`),
 		stderr: (teks) => void process.stderr.write(`${teks}\n`),

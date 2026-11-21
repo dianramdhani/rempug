@@ -9,8 +9,14 @@
  *  - FAKE_NOENTER=1  : mengabaikan Enter, jadi teks tertahan di kotak input.
  *  - FAKE_SPIN=1     : layar terus berubah (spinner) walau idle.
  *  - FAKE_AFTER=ask|izin|limit : tampilkan pertanyaan, prompt izin, atau pesan limit setelah menerima baris.
+ *  - FAKE_CLI=<cli.js> + FAKE_PERILAKU: menjalankan protokol rempug sungguhan lewat proses CLI:
+ *      patuh (bawaan), menyimpang (rencana menyentuh package.json), tanpa-paham, curang (mengaku beres tanpa
+ *      mengubah apa pun), commit (git commit diam-diam), ack-lalu-tanya (membaca brief lalu bertanya).
+ *    FAKE_EDIT=<berkas> adalah berkas yang diubah agent.
  */
+import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
+import { parseBrief } from "../src/core/brief.js";
 
 const [mode = "normal", out = ""] = process.argv.slice(2);
 let buffer = mode === "menu" ? "x" : "";
@@ -37,11 +43,60 @@ async function ack(id: number): Promise<void> {
 	}
 }
 
+/** Menjalankan protokol rempug seperti agent sungguhan, lewat proses CLI nyata. */
+async function protokol(id: number): Promise<void> {
+	const cli = (args: string[], input?: string) =>
+		execFileSync(process.execPath, [process.env.FAKE_CLI as string, ...args], {
+			input,
+			encoding: "utf8",
+			env: process.env,
+		});
+	const perilaku = process.env.FAKE_PERILAKU;
+	const baris = cli(["brief", `T${id}`]).split("\n");
+	const parsed = parseBrief(
+		baris.slice(3, baris.indexOf("PROTOKOL:")).join("\n"),
+	);
+	if (!parsed.ok) return;
+	const { cakupan, cek } = parsed.brief;
+	if (perilaku === "ack-lalu-tanya") {
+		transcript += "Which option do you prefer, A or B?\n";
+		return;
+	}
+	const berkas = process.env.FAKE_EDIT;
+	if (cakupan.mode === "edit" && perilaku !== "tanpa-paham") {
+		const rencana =
+			perilaku === "menyimpang"
+				? `1. Ubah ${berkas} dan package.json`
+				: `1. Ubah ${berkas}`;
+		let hasil = cli(
+			["paham", `T${id}`],
+			[
+				`CAKUPAN: edit ${cakupan.paths.join(", ")}`,
+				`CEK:\n${cek.join("\n")}`,
+				`RENCANA: ${rencana}`,
+				"ASUMSI: -",
+				"PERTANYAAN: -",
+			].join("\n"),
+		);
+		while (hasil.startsWith("MENUNGGU")) {
+			do hasil = cli(["tunggu", `T${id}`]);
+			while (hasil.startsWith("BELUM"));
+			if (/^(STOP|GAGAL)/.test(hasil)) return;
+		}
+	}
+	if (berkas && perilaku !== "curang")
+		appendFileSync(berkas, `// diubah agent T${id}\n`);
+	if (perilaku === "commit")
+		execFileSync("git", ["commit", "-aqm", "diam-diam"]);
+	cli(["reply", `T${id}`], "HASIL: selesai\nBUKTI: ok");
+}
+
 async function accept(line: string): Promise<void> {
 	if (out) appendFileSync(out, `${line}\n`);
 	transcript += `you: ${line}\n`;
 	const brief = /rempug brief T(\d+)/.exec(line);
 	if (process.env.FAKE_ACK && brief) await ack(Number(brief[1]));
+	if (process.env.FAKE_CLI && brief) await protokol(Number(brief[1]));
 	const after = process.env.FAKE_AFTER;
 	if (after === "ask") transcript += "Which option do you prefer, A or B?\n";
 	if (after === "izin") transcript += "Allow this command to run? (y/n)\n";
