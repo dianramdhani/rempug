@@ -20,7 +20,15 @@ import { tmuxTransport } from "../src/core/transport.js";
 /** Membuat direktori sementara yang dihapus otomatis setelah uji selesai. */
 export function tmp(t: TestContext): string {
 	const dir = mkdtempSync(join(tmpdir(), "rempug-"));
-	t.after(() => rmSync(dir, { recursive: true, force: true }));
+	// Agent palsu atau proses CLI bisa masih menulis saat hook ini berjalan; ulangi bila direktori belum kosong.
+	t.after(() =>
+		rmSync(dir, {
+			recursive: true,
+			force: true,
+			maxRetries: 10,
+			retryDelay: 100,
+		}),
+	);
 	return dir;
 }
 
