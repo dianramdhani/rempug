@@ -1,3 +1,10 @@
+## [0.1.4](https://github.com/dianramdhani/rempug/compare/v0.1.3...v0.1.4) (2026-11-21)
+
+
+### Bug Fixes
+
+* do not call a working agent stuck, and resolve short file names ([3771e52](https://github.com/dianramdhani/rempug/commit/3771e52e161d8d5e0cecf589a059ea198103d8c2))
+
 ## [0.1.3](https://github.com/dianramdhani/rempug/compare/v0.1.2...v0.1.3) (2026-11-21)
 
 
