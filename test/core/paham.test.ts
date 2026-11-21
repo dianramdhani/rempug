@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { Ledger } from "../../src/core/ledger.js";
@@ -239,4 +240,146 @@ test("jawab pada tugas yang berjalan menyuntikkan teks ke agent lewat profilnya"
 		jawab({ ledger, registryFile, transport }, 999, "x"),
 		/T999/,
 	);
+});
+
+/** Tugas edit pada repo sungguhan (agar pemeriksaan "path ada di disk" bekerja), cakupan satu berkas laporan. */
+function siapkanAudit(t: Parameters<typeof tmp>[0]) {
+	const repo = tmp(t);
+	for (const d of [
+		"src/features/sdwan",
+		"src/features/chatbot",
+		"docs",
+		"laporan",
+	])
+		mkdirSync(join(repo, d), { recursive: true });
+	writeFileSync(join(repo, "AGENTS.md"), "aturan\n");
+	writeFileSync(join(repo, "rule-checklist.md"), "aturan\n");
+	const ledger = Ledger.open(join(tmp(t), "l.db"));
+	t.after(() => ledger.close());
+	const brief = `TUJUAN: Audit kepatuhan\nCAKUPAN: edit evidence/AUDIT-A1.md\nLANGKAH:\n1. Baca lalu tulis laporan.\nCEK:\ntest -s evidence/AUDIT-A1.md\ngit diff --check\nBALASAN: hasil`;
+	const id = ledger.createTask({
+		repo,
+		agent: "agy",
+		mode: "edit",
+		scope: ["evidence/AUDIT-A1.md"],
+		brief,
+	});
+	ledger.setStatus(id, "berjalan");
+	const kirim = (over: Partial<Record<string, string>>) =>
+		paham(
+			ledger,
+			id,
+			Object.entries({
+				CAKUPAN: "edit evidence/AUDIT-A1.md",
+				CEK: "test -s evidence/AUDIT-A1.md\ngit diff --check",
+				RENCANA: "1. Baca AGENTS.md",
+				ASUMSI: "-",
+				PERTANYAAN: "-",
+				...over,
+			})
+				.map(([k, v]) =>
+					String(v).includes("\n") ? `${k}:\n${v}` : `${k}: ${v}`,
+				)
+				.join("\n"),
+		);
+	return { kirim, ledger, id };
+}
+
+test("berkas di luar cakupan yang hanya DIBACA tidak menahan tugas", (t) => {
+	const { kirim } = siapkanAudit(t);
+	const kasus = [
+		"1. Baca rule-checklist.md dan AGENTS.md (hanya baca)\n2. Periksa src/features/sdwan dan src/features/chatbot dengan rg\n3. Tulis laporan ke evidence/AUDIT-A1.md",
+		"1) Baca checklist dan aturan AGENTS.md read-only 2) Periksa folder fitur dengan rg; tulis laporan hanya pada berkas cakupan 3) Jalankan cek",
+		// Teks rencana asli codex dari sesi audit nyata (ditolak tiga kali oleh versi 0.1.1).
+		"1) Baca checklist dan aturan AGENTS.md yang dirujuk secara read-only. 2) Periksa enam folder fitur dengan rg dan telaah konteks; tulis laporan/checkpoint hanya pada berkas cakupan. 3) Jalankan cek laporan dan laporkan hasil.",
+		// Teks rencana asli agy dari sesi yang sama; pola {a,b} dibaca sebagai dua path.
+		"1. Menghitung berkas dan menjalankan pola rg untuk 20 aturan pada src/features/{sdwan,chatbot,error}.\n2. Memeriksa konteks tiap kandidat (membedakan false positive dan aturan kelas JUDGMENT AR-05, AR-08, AR-24).\n3. Menulis laporan triase ke evidence/AUDIT-A1.md beserta checkpoint per aturan lalu menjalankan cek.",
+		"1. Menghitung berkas dan menjalankan pola rg pada src/features/{sdwan,chatbot}\n2. Memeriksa konteks tiap kandidat\n3. Menulis laporan ke evidence/AUDIT-A1.md",
+	];
+	for (const rencana of kasus)
+		assert.deepEqual(kirim({ RENCANA: rencana }), { hasil: "LANJUT" }, rencana);
+});
+
+test("berkas di luar cakupan yang DITULIS tetap menahan tugas, termasuk lewat {a,b}", (t) => {
+	const { kirim } = siapkanAudit(t);
+	const a = kirim({ RENCANA: "1. Ubah AGENTS.md agar lebih singkat" });
+	assert.equal(a.hasil, "MENUNGGU");
+	if (a.hasil === "MENUNGGU")
+		assert.match(a.alasan, /di luar cakupan.*AGENTS\.md/);
+
+	const { kirim: k2 } = siapkanAudit(t);
+	const b = k2({ RENCANA: "1. Hapus src/features/{sdwan,chatbot}/old.ts" });
+	assert.equal(b.hasil, "MENUNGGU");
+	if (b.hasil === "MENUNGGU")
+		assert.match(
+			b.alasan,
+			/src\/features\/sdwan\/old\.ts, src\/features\/chatbot\/old\.ts/,
+		);
+});
+
+test("kata kerja menulis pada butir lain tidak ikut menandai path yang disebut di butir baca", (t) => {
+	const { kirim } = siapkanAudit(t);
+	const r = kirim({
+		RENCANA: "1. Baca AGENTS.md\n2. Tulis temuan ke evidence/AUDIT-A1.md",
+	});
+	assert.deepEqual(r, { hasil: "LANJUT" });
+});
+
+test("kata biasa (laporan/checkpoint, docs) bukan path, tetapi path yang ada di disk tanpa ekstensi tetap dikenali", (t) => {
+	const { kirim } = siapkanAudit(t);
+	assert.deepEqual(
+		kirim({ RENCANA: "1. Tulis laporan/checkpoint pada berkas cakupan" }),
+		{ hasil: "LANJUT" },
+	);
+	// Kata polos tanpa garis miring ("docs") tidak dihitung; terlalu sering sama dengan kata biasa.
+	assert.deepEqual(kirim({ RENCANA: "1. Hapus docs lalu tulis laporan" }), {
+		hasil: "LANJUT",
+	});
+	// Tetapi path yang ada di disk dikenali walau tanpa ekstensi.
+	const r = kirim({ RENCANA: "1. Hapus docs/ lalu tulis laporan" });
+	assert.equal(r.hasil, "MENUNGGU");
+});
+
+test("tindakan terlarang tetap ditandai di butir mana pun, juga yang hanya membaca", (t) => {
+	const { kirim } = siapkanAudit(t);
+	const r = kirim({ RENCANA: "1. Baca AGENTS.md lalu git push hasilnya" });
+	assert.equal(r.hasil, "MENUNGGU");
+	if (r.hasil === "MENUNGGU") assert.match(r.alasan, /terlarang.*git push/);
+});
+
+test("CEK: perintah brief boleh digabung &&, memakai tanda kutip, bullet, atau prompt", (t) => {
+	const variasi = [
+		"test -s evidence/AUDIT-A1.md && git diff --check",
+		"`test -s evidence/AUDIT-A1.md`\n`git diff --check`",
+		"- test -s evidence/AUDIT-A1.md\n- git diff --check",
+		"$ test -s   evidence/AUDIT-A1.md\n$ git diff --check",
+		"1. test -s evidence/AUDIT-A1.md\n2. git diff --check",
+		"git diff --check\ntest -s evidence/AUDIT-A1.md",
+	];
+	for (const cek of variasi) {
+		const { kirim } = siapkanAudit(t);
+		assert.deepEqual(kirim({ CEK: cek }), { hasil: "LANJUT" }, cek);
+	}
+});
+
+test("CEK: perintah tambahan dari agent boleh, tetapi perintah brief yang hilang menahan tugas dan disebut", (t) => {
+	const { kirim } = siapkanAudit(t);
+	assert.deepEqual(
+		kirim({
+			CEK: "test -s evidence/AUDIT-A1.md\ngit diff --check\nwc -l evidence/AUDIT-A1.md",
+		}),
+		{ hasil: "LANJUT" },
+	);
+
+	const { kirim: k2 } = siapkanAudit(t);
+	const r = k2({ CEK: "test -s evidence/AUDIT-A1.md" });
+	assert.equal(r.hasil, "MENUNGGU");
+	if (r.hasil === "MENUNGGU")
+		assert.match(
+			r.alasan,
+			/cek berbeda dari brief.*tidak disebut: git diff --check/,
+		);
+
+	const { kirim: k3 } = siapkanAudit(t);
+	assert.equal(k3({ CEK: "-" }).hasil, "MENUNGGU");
 });

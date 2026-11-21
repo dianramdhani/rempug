@@ -289,3 +289,27 @@ test("laporan manusia: brief yang tidak lolos validasi tetap menampilkan judulny
 	]);
 	assert.match(teks, /Cek halaman login \(oleh codex\): sedang dikerjakan/);
 });
+
+test("laporan manusia: commit lain saat tugas berjalan disebut sebagai catatan, bukan kegagalan", () => {
+	const teks = formatLaporanManusia([
+		tugas({
+			brief: brief("Audit fitur laporan", "edit evidence/A.md"),
+			verify: verify("x", {
+				perubahan: [{ path: "evidence/A.md", status: "A", plus: 70, minus: 0 }],
+				plus: 70,
+				minus: 0,
+				luarCakupan: [],
+				cek: [],
+				peringatan:
+					"HEAD maju 2 commit selama tugas, di luar cakupan tugas ini",
+			}),
+		}),
+	]);
+	assert.doesNotMatch(teks, TERLARANG, teks);
+	assert.match(teks, /^Selesai/m);
+	assert.match(
+		teks,
+		/juga ada commit lain di repo selama tugas berjalan \(bukan dari tugas ini\)/,
+	);
+	assert.doesNotMatch(teks, /Perlu perhatian/);
+});

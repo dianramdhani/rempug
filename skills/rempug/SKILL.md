@@ -62,7 +62,8 @@ Agent adalah model murah: tulis brief selengkap dan sejelas mungkin, karena biay
 | `bertanya`                               | Jawab dengan `jawab <id> "..."`                                                                                                                    |
 | `menunggu-izin`                          | Manusia yang harus bertindak: satu kalimat berisi sesi dan tindakan, lalu lanjutkan pekerjaan lain                                                 |
 | `limit`, `macet`, `tersangkut`, `hilang` | Alihkan ke agent lain atau kerjakan sendiri                                                                                                        |
-| `pelanggaran`                            | HEAD atau branch berubah: hentikan, laporkan ke user, jangan menumpuk tugas di atasnya                                                             |
+| `pelanggaran` | Agent berpindah branch, menulis ulang riwayat, atau commit berkas di cakupan tugasnya sendiri: hentikan, laporkan ke user, jangan menumpuk tugas di atasnya |
+| `ℹ HEAD maju N commit ... di luar cakupan tugas ini` | Bukan pelanggaran: commit user atau orkestrator saat tugas berjalan (beberapa agent berbagi satu working tree). Abaikan; hasil tugas tetap dinilai dari tes dan perubahannya |
 | `diterima-tanpa-ack`                     | Agent menerima pointer tetapi tidak menjalankan rempug; alihkan                                                                                    |
 
 ### Kebijakan peninjauan

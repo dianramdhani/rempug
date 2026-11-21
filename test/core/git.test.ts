@@ -1,8 +1,17 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import { gitFiles, gitInfo, isGitRepo, repoRoot } from "../../src/core/git.js";
+import {
+	changedFilesBetween,
+	commitsBetween,
+	gitFiles,
+	gitInfo,
+	isAncestor,
+	isGitRepo,
+	repoRoot,
+} from "../../src/core/git.js";
 import { gitRepo, tmp } from "../helpers.js";
 
 test("gitInfo di repo bersih: HEAD, branch, dan porcelain kosong", (t) => {
@@ -61,4 +70,34 @@ test("repoRoot dan isGitRepo", (t) => {
 	const luar = tmp(t);
 	assert.equal(isGitRepo(luar), false);
 	assert.equal(repoRoot(luar), luar);
+});
+
+test("isAncestor, commitsBetween, dan changedFilesBetween menjelaskan bagaimana HEAD bergerak", (t) => {
+	const repo = gitRepo(t, { "src/a.ts": "a\n", "lib/c.ts": "c\n" });
+	const awal = gitInfo(repo).head as string;
+	writeFileSync(join(repo, "lib", "c.ts"), "c2\n");
+	execFileSync("git", ["-C", repo, "commit", "-aqm", "satu"]);
+	writeFileSync(join(repo, "docs.md"), "d\n");
+	execFileSync("git", ["-C", repo, "add", "-A"]);
+	execFileSync("git", ["-C", repo, "commit", "-qm", "dua"]);
+	const kini = gitInfo(repo).head as string;
+
+	assert.equal(isAncestor(repo, awal, kini), true);
+	assert.equal(isAncestor(repo, kini, awal), false);
+	assert.equal(commitsBetween(repo, awal, kini), 2);
+	assert.deepEqual(changedFilesBetween(repo, awal, kini).sort(), [
+		"docs.md",
+		"lib/c.ts",
+	]);
+
+	execFileSync("git", [
+		"-C",
+		repo,
+		"commit",
+		"--amend",
+		"-qm",
+		"ditulis ulang",
+	]);
+	assert.equal(isAncestor(repo, kini, gitInfo(repo).head as string), false);
+	assert.equal(isAncestor(repo, "bukan-sha", kini), false);
 });

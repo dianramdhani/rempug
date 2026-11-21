@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { parseBrief } from "./brief.js";
 import { RempugError, UsageError } from "./errors.js";
 import type { Ledger, Task } from "./ledger.js";
@@ -39,18 +41,76 @@ const baris = (teks: string) =>
 		.map((l) => l.trim())
 		.filter(Boolean);
 
-/** Path yang disebut di teks: token yang memuat `/` atau berakhiran ekstensi, bukan URL atau opsi. */
-function pathDisebut(teks: string): string[] {
+/** Kata kerja yang mengubah isi berkas. Menyebut berkas untuk dibaca atau diperiksa tidak dihitung. */
+const KATA_TULIS =
+	/\b(ubah|mengubah|diubah|edit|mengedit|diedit|tulis|menulis|ditulis|hapus|menghapus|dihapus|buat|membuat|dibuat|tambah|menambah|menambahkan|ditambah|ganti|mengganti|diganti|rename|pindah|memindahkan|dipindah|modifikasi|memodifikasi|perbarui|memperbarui|update|write|create|delete|remove|modify|change|replace|overwrite|move|patch|append)\b/i;
+
+/**
+ * Memecah rencana menjadi butir: per baris, dan per penomoran dalam satu baris ("1) a 2) b 3) c").
+ * Model murah sering menulis seluruh rencana dalam satu baris.
+ */
+function butirRencana(teks: string): string[] {
 	return teks
-		.split(/[\s`'"(),;:]+/)
+		.split("\n")
+		.flatMap((l) => l.split(/(?:^|\s)\d+[.)]\s+/))
+		.map((b) => b.trim().replace(/^[-*•]\s+/, ""))
+		.filter(Boolean);
+}
+
+/** `a/{b,c}/d` menjadi `a/b/d` dan `a/c/d`. */
+function kembangkanKurung(token: string): string[] {
+	const cocok = /\{([^{}]*)\}/.exec(token);
+	if (!cocok) return [token];
+	const depan = token.slice(0, cocok.index);
+	const belakang = token.slice(cocok.index + cocok[0].length);
+	return (cocok[1] ?? "")
+		.split(",")
+		.flatMap((pilihan) =>
+			kembangkanKurung(`${depan}${pilihan.trim()}${belakang}`),
+		);
+}
+
+/**
+ * Path yang disebut di teks. Token dianggap path bila berekstensi, atau memuat `/` dan benar-benar ada di repo.
+ * Kata biasa seperti "laporan/checkpoint" atau "docs" tidak dihitung; yang terlewat tertangkap oleh
+ * pemeriksaan perubahan nyata setelah tugas selesai.
+ */
+function pathDisebut(teks: string, repo: string): string[] {
+	return teks
+		.split(/[\s`'"()]+/)
+		.flatMap(kembangkanKurung)
+		.flatMap((t) => t.split(/[,;:]+/))
 		.map((t) => t.replace(/\.+$/, ""))
 		.filter(
 			(t) =>
 				t !== "" &&
 				!t.startsWith("-") &&
+				!t.startsWith("*") &&
 				!t.includes("://") &&
-				(t.includes("/") || /\.[a-z][a-z0-9]{1,4}$/i.test(t)),
+				(/\.[a-z][a-z0-9]{1,4}$/i.test(t) ||
+					(t.includes("/") && existsSync(join(repo, t)))),
 		);
+}
+
+/** Perintah tanpa penghias: tanpa backtick, bullet, nomor, atau prompt `$`, dengan spasi dirapikan. */
+const bersihkanPerintah = (teks: string) =>
+	teks
+		.replace(/`/g, "")
+		.replace(/^\s*(?:\d+[.)]|[-*•]|\$)\s+/, "")
+		.replace(/\s+/g, " ")
+		.trim();
+
+/** Perintah brief yang tidak disebut di CEK agent; urutan, format, dan perintah tambahan dari agent diabaikan. */
+function cekYangHilang(
+	cekAgent: string | undefined,
+	cekBrief: string[],
+): string[] {
+	const tumpukan = kosong(cekAgent)
+		? ""
+		: (cekAgent ?? "").split("\n").map(bersihkanPerintah).join("\n");
+	return cekBrief.filter(
+		(perintah) => !tumpukan.includes(bersihkanPerintah(perintah)),
+	);
 }
 
 const potong = (teks: string, panjang: number) =>
@@ -74,16 +134,23 @@ function bandingkan(
 			`cakupan berbeda dari brief (agent: ${cakupan.join(", ") || "-"}; brief: ${scope.join(", ")})`,
 		);
 
-	const cek = kosong(bagian.get("CEK")) ? [] : baris(bagian.get("CEK") ?? "");
-	if (!sama(cek, parsed.brief.cek)) alasan.push("cek berbeda dari brief");
+	const hilang = cekYangHilang(bagian.get("CEK"), parsed.brief.cek);
+	if (hilang.length > 0)
+		alasan.push(`cek berbeda dari brief (tidak disebut: ${hilang.join(", ")})`);
 
 	const rencanaTeks = bagian.get("RENCANA") ?? "";
-	const rencana = baris(rencanaTeks).map((l) =>
-		l.replace(/^(\d+[.)]|[-*•])\s+/, ""),
-	);
+	const rencana = butirRencana(rencanaTeks);
 	if (rencana.length > MAKS_BUTIR)
 		alasan.push(`rencana lebih dari ${MAKS_BUTIR} butir (${rencana.length})`);
-	const luar = pathDisebut(rencanaTeks).filter((p) => !covers(scope, p));
+	// Hanya butir yang menulis yang dibatasi cakupan; membaca berkas di luar cakupan itu wajar (mis. audit).
+	const luar = [
+		...new Set(
+			rencana
+				.filter((butir) => KATA_TULIS.test(butir))
+				.flatMap((butir) => pathDisebut(butir, task.repo))
+				.filter((p) => !covers(scope, p)),
+		),
+	];
 	if (luar.length > 0)
 		alasan.push(`rencana menyentuh di luar cakupan: ${luar.join(", ")}`);
 	const terlarang = TERLARANG.exec(

@@ -45,3 +45,37 @@ export function gitFiles(repo: string, pathspecs: string[]): string[] {
 	]);
 	return out ? out.split("\0").filter(Boolean) : [];
 }
+
+/** Apakah `ancestor` adalah leluhur `descendant` (HEAD yang hanya maju, bukan ditulis ulang). */
+export function isAncestor(
+	repo: string,
+	ancestor: string,
+	descendant: string,
+): boolean {
+	return (
+		spawnSync(
+			"git",
+			["-C", repo, "merge-base", "--is-ancestor", ancestor, descendant],
+			{
+				encoding: "utf8",
+			},
+		).status === 0
+	);
+}
+
+/** Jumlah commit yang ada di `to` tetapi tidak di `from`. */
+export function commitsBetween(repo: string, from: string, to: string): number {
+	return (
+		Number(git(repo, ["rev-list", "--count", `${from}..${to}`])?.trim()) || 0
+	);
+}
+
+/** Berkas yang berbeda antara dua commit. */
+export function changedFilesBetween(
+	repo: string,
+	from: string,
+	to: string,
+): string[] {
+	const out = git(repo, ["diff", "--name-only", "-z", from, to]);
+	return out ? out.split("\0").filter(Boolean) : [];
+}

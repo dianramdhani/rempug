@@ -6,7 +6,14 @@ import { basename, join } from "node:path";
 import { deflateSync, inflateSync } from "node:zlib";
 import { parseBrief } from "./brief.js";
 import { RempugError } from "./errors.js";
-import { gitFiles, gitInfo, isGitRepo } from "./git.js";
+import {
+	changedFilesBetween,
+	commitsBetween,
+	gitFiles,
+	gitInfo,
+	isAncestor,
+	isGitRepo,
+} from "./git.js";
 import type { Ledger, Task } from "./ledger.js";
 import { covers } from "./scope.js";
 
@@ -300,6 +307,8 @@ export function runChecks(
 export interface VerifyResult {
 	ok: boolean;
 	pelanggaran?: string;
+	/** Hal yang patut diketahui tetapi bukan kesalahan agent, mis. commit lain saat tugas berjalan. */
+	peringatan?: string;
 	perubahan: FileChange[];
 	plus: number;
 	minus: number;
@@ -350,8 +359,39 @@ export function formatLine(
 	const akhir = [
 		...(cek.length ? [cek.join(" ")] : []),
 		...(hasil.tanpaPaham ? ["⚠ tanpa paham"] : []),
+		...(hasil.peringatan ? [`ℹ ${hasil.peringatan}`] : []),
 	];
 	return [dasar, ...akhir].join(" | ");
+}
+
+/**
+ * Membedakan commit agent dari commit orang lain. Beberapa agent berbagi satu working tree, jadi user atau
+ * orkestrator bisa commit di tengah tugas; HEAD yang hanya maju dan tidak menyentuh berkas tugas ini adalah
+ * peringatan, bukan pelanggaran. Pelanggaran: pindah branch, riwayat ditulis ulang, atau commit baru yang
+ * mengubah berkas di cakupan tugas ini (agent yang commit pekerjaannya sendiri).
+ */
+function periksaGit(
+	task: Task,
+	git: { head?: string; branch?: string },
+): { pelanggaran?: string; peringatan?: string } {
+	if (task.branch && git.branch && task.branch !== git.branch)
+		return { pelanggaran: `branch berubah (${task.branch}→${git.branch})` };
+	if (!task.headSha || !git.head || task.headSha === git.head) return {};
+	if (!isAncestor(task.repo, task.headSha, git.head))
+		return {
+			pelanggaran: `riwayat git ditulis ulang (HEAD ${pendek(git.head)} bukan lanjutan dari ${pendek(task.headSha)})`,
+		};
+	const dalam = changedFilesBetween(task.repo, task.headSha, git.head).filter(
+		(f) => covers(task.scope ?? [], f),
+	);
+	if (dalam.length > 0)
+		return {
+			pelanggaran: `commit baru mengubah berkas di cakupan tugas (${pendek(task.headSha)}→${pendek(git.head)}): ${dalam.slice(0, 3).join(", ")}`,
+		};
+	const n = commitsBetween(task.repo, task.headSha, git.head);
+	return {
+		peringatan: `HEAD maju ${n} commit selama tugas, di luar cakupan tugas ini`,
+	};
 }
 
 /**
@@ -376,17 +416,14 @@ export function verifyTask(
 	const edit = task.mode === "edit";
 
 	const git = gitInfo(task.repo);
-	let pelanggaran: string | undefined;
-	if (task.headSha && git.head && task.headSha !== git.head)
-		pelanggaran = `HEAD berubah (${pendek(task.headSha)}→${pendek(git.head)})`;
-	else if (task.branch && git.branch && task.branch !== git.branch)
-		pelanggaran = `branch berubah (${task.branch}→${git.branch})`;
+	const { pelanggaran, peringatan } = periksaGit(task, git);
 
 	const perubahan = edit ? computeChanges(ledger, task, task.repo) : [];
 	const hasilCek = runChecks(cek, task.repo, options.waktuCekMs);
 	const hasil: VerifyResult = {
 		ok: !pelanggaran && hasilCek.every((c) => c.ok),
 		pelanggaran,
+		peringatan,
 		perubahan,
 		plus: perubahan.reduce((n, f) => n + f.plus, 0),
 		minus: perubahan.reduce((n, f) => n + f.minus, 0),

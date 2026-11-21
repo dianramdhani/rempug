@@ -170,6 +170,10 @@ function uraianTugas(task: Task): string {
 			const bagian = hasil
 				? [uraianPerubahan(hasil), uraianCek(hasil)]
 				: ["selesai"];
+			if (hasil?.peringatan)
+				bagian.push(
+					"juga ada commit lain di repo selama tugas berjalan (bukan dari tugas ini)",
+				);
 			if (hasil?.luarCakupan.length)
 				bagian.push(
 					`juga ada perubahan di luar area tugas: ${hasil.luarCakupan.slice(0, 4).join(", ")}`,

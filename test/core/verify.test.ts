@@ -407,7 +407,7 @@ test("verifyTask: commit atau pindah branch oleh agent adalah pelanggaran", (t) 
 		assert.match(
 			r.linha,
 			aksi === "commit"
-				? /pelanggaran: HEAD berubah/
+				? /pelanggaran: commit baru mengubah berkas di cakupan/
 				: /pelanggaran: branch berubah \(main→cabang-lain\)/,
 		);
 	}
@@ -536,4 +536,108 @@ test("readBrief tugas baca menjelaskan CEK sebagai bukti yang harus dilaporkan a
 		/CEK untuk tugas ini adalah bukti yang harus kamu laporkan di BUKTI/,
 	);
 	assert.doesNotMatch(teks, /rempug paham/);
+});
+
+/** Menjalankan satu tugas edit sampai selesai diverifikasi; `selamaTugas` meniru apa pun yang terjadi di repo saat agent bekerja. */
+function jalankanEdit(
+	t: Parameters<typeof tmp>[0],
+	selamaTugas: (repo: string) => void,
+	scope = ["src/**"],
+) {
+	const { repo, ledger, id, task } = siapkan(t, { scope });
+	takeSnapshot(ledger, task(), repo);
+	ledger.patch(id, { paham: "ada" });
+	ledger.setStatus(id, "memverifikasi");
+	selamaTugas(repo);
+	const hasil = verifyTask(ledger, id);
+	return { hasil, status: ledger.getTask(id)?.status, repo };
+}
+
+const git = (repo: string, ...args: string[]) =>
+	execFileSync("git", ["-C", repo, ...args], { stdio: "pipe" });
+
+test("commit orang lain di luar cakupan tugas hanya menjadi peringatan, bukan pelanggaran", (t) => {
+	const { hasil, status } = jalankanEdit(t, (repo) => {
+		tulis(repo, "src/a.ts", "dari agent\n");
+		tulis(repo, "lib/c.ts", "commit dari orkestrator atau user\n");
+		git(repo, "add", "lib/c.ts");
+		git(repo, "commit", "-qm", "docs(audit): simpan hasil tugas lain");
+	});
+	assert.equal(hasil.ok, true);
+	assert.equal(hasil.pelanggaran, undefined);
+	assert.equal(status, "selesai");
+	assert.match(
+		hasil.peringatan ?? "",
+		/HEAD maju 1 commit.*di luar cakupan tugas ini/,
+	);
+	assert.match(hasil.linha, /✓ .*\| ℹ HEAD maju 1 commit/);
+});
+
+test("beberapa commit orang lain dihitung dan tetap hanya peringatan", (t) => {
+	const { hasil } = jalankanEdit(t, (repo) => {
+		for (const n of [1, 2, 3]) {
+			tulis(repo, `lib/n${n}.ts`, `${n}\n`);
+			git(repo, "add", "-A", "lib");
+			git(repo, "commit", "-qm", `lain ${n}`);
+		}
+	});
+	assert.equal(hasil.pelanggaran, undefined);
+	assert.match(hasil.peringatan ?? "", /HEAD maju 3 commit/);
+});
+
+test("commit yang mengubah berkas di cakupan tugas ini tetap pelanggaran", (t) => {
+	const { hasil, status } = jalankanEdit(t, (repo) => {
+		tulis(repo, "src/a.ts", "agent diam-diam commit\n");
+		git(repo, "commit", "-aqm", "diam-diam");
+	});
+	assert.equal(status, "pelanggaran");
+	assert.match(
+		hasil.pelanggaran ?? "",
+		/commit baru mengubah berkas di cakupan tugas.*src\/a\.ts/,
+	);
+	assert.match(
+		hasil.linha,
+		/⚠ pelanggaran: commit baru mengubah berkas di cakupan/,
+	);
+});
+
+test("riwayat yang ditulis ulang (amend atau reset) tetap pelanggaran walau tidak menyentuh cakupan", (t) => {
+	const { hasil, status } = jalankanEdit(t, (repo) => {
+		git(repo, "commit", "--amend", "-qm", "ditulis ulang");
+	});
+	assert.equal(status, "pelanggaran");
+	assert.match(hasil.pelanggaran ?? "", /riwayat git ditulis ulang/);
+});
+
+test("pindah branch tetap pelanggaran, dan didahulukan dari perubahan HEAD", (t) => {
+	const { hasil, status } = jalankanEdit(t, (repo) => {
+		git(repo, "checkout", "-qb", "cabang-lain");
+		tulis(repo, "lib/c.ts", "x\n");
+		git(repo, "commit", "-aqm", "di cabang lain");
+	});
+	assert.equal(status, "pelanggaran");
+	assert.match(hasil.pelanggaran ?? "", /branch berubah \(main→cabang-lain\)/);
+});
+
+test("tugas baca dengan commit orang lain tidak dianggap pelanggaran", (t) => {
+	const repo = gitRepo(t);
+	const ledger = Ledger.open(join(tmp(t), "l.db"));
+	t.after(() => ledger.close());
+	const gi = gitInfo(repo);
+	const id = ledger.createTask({
+		repo,
+		agent: "agy",
+		mode: "browser",
+		brief: "TUJUAN: Cek\nCAKUPAN: browser\nLANGKAH:\n1. a\nCEK: -\nBALASAN: b",
+		headSha: gi.head,
+		branch: gi.branch,
+	});
+	ledger.setStatus(id, "memverifikasi");
+	ledger.saveReply(id, "ok", "ok");
+	tulis(repo, "lain.md", "x\n");
+	git(repo, "add", "-A");
+	git(repo, "commit", "-qm", "orang lain");
+	const hasil = verifyTask(ledger, id);
+	assert.equal(hasil.pelanggaran, undefined);
+	assert.equal(ledger.getTask(id)?.status, "selesai");
 });

@@ -223,7 +223,7 @@ test("commit diam-diam oleh agent adalah pelanggaran", async (t) => {
 	);
 	assert.match(
 		baris,
-		/^T1 agy ⚠ pelanggaran: HEAD berubah \([0-9a-f]{7}→[0-9a-f]{7}\)$/,
+		/^T1 agy ⚠ pelanggaran: commit baru mengubah berkas di cakupan tugas \([0-9a-f]{7}→[0-9a-f]{7}\): src\/a\.ts$/,
 	);
 });
 

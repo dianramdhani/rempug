@@ -93,3 +93,9 @@ test("report manusia ada di CLI dan MCP", () => {
 	assert.match(baca("dist/src/commands.js"), /manusia/);
 	assert.match(baca("dist/src/mcp.js"), /manusia/);
 });
+
+test("SKILL.md membedakan pelanggaran sungguhan dari commit orang lain saat tugas berjalan", () => {
+	assert.match(skill, /menulis ulang riwayat/);
+	assert.match(skill, /HEAD maju N commit/);
+	assert.match(skill, /Bukan pelanggaran: commit user atau orkestrator/);
+});

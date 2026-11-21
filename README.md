@@ -169,6 +169,8 @@ Semuanya juga tersedia sebagai tool MCP (`rempug mcp`), kecuali `watch`. Jalanka
 - Konfirmasi pemahaman menangkap salah paham pada **cakupan, cek, dan tindakan terlarang**, bukan salah paham makna pada tujuan. Untuk tugas berisiko gunakan `--teliti`; verifikasi sesudah kerja tetap menjadi jaring terakhir.
 - Pengecekan cakupan sengaja **konservatif**: path tanpa wildcard dianggap sebagai dirinya sendiri beserta isinya. Kadang ia menolak tugas yang sebenarnya aman, demi tidak membiarkan dua agent menimpa file yang sama.
 - Pada tugas `baca` dan `browser`, kolom `CEK` adalah deskripsi bukti yang harus dilaporkan agent, bukan perintah yang dijalankan. Perintah shell hanya dijalankan untuk tugas `edit`.
+- Beberapa agent berbagi satu working tree dan branch. Commit Anda atau orkestrator saat tugas berjalan hanya menjadi **peringatan**; yang dianggap pelanggaran adalah pindah branch, menulis ulang riwayat, atau commit yang mengubah berkas di cakupan tugas itu sendiri.
+- Pemeriksaan rencana hanya membatasi **penulisan** di luar cakupan. Menyebut berkas lain untuk dibaca (misalnya tugas audit) tidak menahan tugas. Pemeriksaan perubahan nyata setelah tugas selesai tetap menjadi jaring terakhir.
 - Windows tidak didukung (tmux).
 
 ## Pengembangan
