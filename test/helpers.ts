@@ -35,7 +35,14 @@ export function tmp(_t: TestContext): string {
 }
 
 /** Mengulang `fn` sampai mengembalikan nilai selain `undefined`, atau gagal setelah `ms`. */
-export async function until<T>(fn: () => T | undefined, ms = 4000): Promise<T> {
+/**
+ * Batas bawaan 20 dtk: kondisi yang ditunggu (agent palsu menyala, pointer tiba) biasanya tercapai dalam
+ * sepersekian detik, tetapi memulai Node dan tmux di mesin yang sibuk bisa melewati 4 dtk.
+ */
+export async function until<T>(
+	fn: () => T | undefined,
+	ms = 20_000,
+): Promise<T> {
 	const end = Date.now() + ms;
 	for (;;) {
 		const value = fn();
@@ -48,7 +55,7 @@ export async function until<T>(fn: () => T | undefined, ms = 4000): Promise<T> {
 /** Seperti `until`, tetapi untuk pemeriksaan asinkron. */
 export async function untilAsync<T>(
 	fn: () => Promise<T | undefined>,
-	ms = 4000,
+	ms = 20_000,
 ): Promise<T> {
 	const end = Date.now() + ms;
 	for (;;) {
