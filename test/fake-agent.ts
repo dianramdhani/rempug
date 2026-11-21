@@ -9,6 +9,7 @@
  *  - FAKE_TUNDA_MS=n : sebelum ack, "bekerja" selama n ms dengan teks kemajuan yang terus berubah (seperti model sungguhan).
  *  - FAKE_TUNDA_TANPA_ACK=1 : bekerja selama FAKE_TUNDA_MS lalu diam tanpa pernah ack.
  *  - FAKE_NOENTER=1  : mengabaikan Enter, jadi teks tertahan di kotak input.
+ *  - FAKE_LAMBAT_MS=n : memproses Enter n ms setelah diterima (meniru runner CI yang lambat).
  *  - FAKE_SPIN=1     : layar terus berubah (spinner) walau idle.
  *  - FAKE_AFTER=ask|izin|limit : tampilkan pertanyaan, prompt izin, atau pesan limit setelah menerima baris.
  *  - FAKE_CLI=<cli.js> + FAKE_PERILAKU: menjalankan protokol rempug sungguhan lewat proses CLI:
@@ -130,6 +131,12 @@ async function accept(line: string): Promise<void> {
 
 function submit(): void {
 	if (process.env.FAKE_NOENTER) return;
+	const lambat = Number(process.env.FAKE_LAMBAT_MS ?? 0);
+	if (lambat > 0) setTimeout(proses, lambat);
+	else proses();
+}
+
+function proses(): void {
 	if (menuOpen) {
 		menuOpen = false;
 		return;

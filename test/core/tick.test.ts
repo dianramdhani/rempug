@@ -26,12 +26,28 @@ async function mulai(
 		tmux: h.tmux.opts,
 	};
 	const { id } = await sendTask(deps, { agent: "codex", brief: BACA });
-	// Pointer harus sudah tampak di layar (di kotak input atau riwayat); spasi diabaikan karena baris bisa terbungkus.
-	await until(() =>
-		h.transport.layar("1:0.0").replace(/\s+/g, "").includes(`rempugbriefT${id}`)
-			? true
-			: undefined,
-	);
+	// Tunggu sampai agent palsu benar-benar MEMPROSES pointer: berkasnya tercatat, lalu layar berhenti berubah.
+	// Teks yang baru terlihat di kotak input belum berarti Enter sudah diproses (di CI yang lambat selisihnya terasa).
+	// Pengecualian FAKE_NOENTER: Enter memang tidak pernah diproses, jadi cukup menunggu teksnya tampak.
+	if (env.FAKE_NOENTER)
+		await until(() =>
+			h.transport
+				.layar("1:0.0")
+				.replace(/\s+/g, "")
+				.includes(`rempugbriefT${id}`)
+				? true
+				: undefined,
+		);
+	else {
+		await until(() => (h.diterima("codex").length ? true : undefined));
+		let terakhir = "";
+		await until(() => {
+			const kini = h.transport.layar("1:0.0");
+			const sama = kini === terakhir;
+			terakhir = kini;
+			return sama ? true : undefined;
+		});
+	}
 	const maju = (detik: number) => {
 		jam += detik;
 	};
@@ -79,7 +95,7 @@ test("pointer diterima tetapi tidak ada ack: dilaporkan sekali, tidak dikirim ul
 });
 
 test("prompt izin sebelum ack dilaporkan sebagai menunggu-izin, bukan tanpa-ack", async (t) => {
-	const m = await mulai(t, { FAKE_AFTER: "izin" });
+	const m = await mulai(t, { FAKE_AFTER: "izin", FAKE_LAMBAT_MS: "400" });
 	await m.jalan();
 	m.maju(10);
 	const [baris] = await m.jalan();
@@ -90,7 +106,7 @@ test("prompt izin sebelum ack dilaporkan sebagai menunggu-izin, bukan tanpa-ack"
 });
 
 test("setelah ack: pertanyaan agent dilaporkan sekali beserta cara menjawab", async (t) => {
-	const m = await mulai(t, { FAKE_AFTER: "ask" });
+	const m = await mulai(t, { FAKE_AFTER: "ask", FAKE_LAMBAT_MS: "400" });
 	m.ledger.markAcked(m.id);
 	m.maju(10);
 	const [baris] = await m.jalan();
@@ -106,7 +122,7 @@ test("setelah ack: pertanyaan agent dilaporkan sekali beserta cara menjawab", as
 });
 
 test("setelah ack: limit membuat tugas macet dengan kejadian limit", async (t) => {
-	const m = await mulai(t, { FAKE_AFTER: "limit" });
+	const m = await mulai(t, { FAKE_AFTER: "limit", FAKE_LAMBAT_MS: "400" });
 	m.ledger.markAcked(m.id);
 	m.maju(10);
 	const [baris] = await m.jalan();
@@ -116,7 +132,7 @@ test("setelah ack: limit membuat tugas macet dengan kejadian limit", async (t) =
 });
 
 test("setelah ack: izin dilaporkan sekali untuk manusia dan tidak dijawab", async (t) => {
-	const m = await mulai(t, { FAKE_AFTER: "izin" });
+	const m = await mulai(t, { FAKE_AFTER: "izin", FAKE_LAMBAT_MS: "400" });
 	m.ledger.markAcked(m.id);
 	m.maju(10);
 	const [baris] = await m.jalan();
