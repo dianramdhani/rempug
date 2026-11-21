@@ -7,7 +7,13 @@
 	},
 	"files": {
 		"ignoreUnknown": true,
-		"includes": ["**", "!.kiro", "!dist", "!node_modules"]
+		"includes": [
+			"**",
+			"!.kiro",
+			"!dist",
+			"!node_modules",
+			"!docs/diagrams/render.html"
+		]
 	},
 	"formatter": {
 		"enabled": true,
