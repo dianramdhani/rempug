@@ -41,62 +41,15 @@ Anda hanya mengetik `/rempug` sekali. Sesudahnya orkestrator memutuskan sendiri 
 
 Gambaran besarnya:
 
-```mermaid
-flowchart LR
-  U([Anda]) -->|"/rempug, lalu minta hasil"| O["Orkestrator<br/>Claude Code"]
-  O -->|"send: satu baris pointer"| T{{"tmux"}}
-  T --> A1["Agent codex"]
-  T --> A2["Agent agy"]
-  T --> A3["Agent opencode"]
-  A1 -->|reply| R[("rempug<br/>ledger SQLite<br/>di luar repo")]
-  A2 -->|reply| R
-  A3 -->|reply| R
-  R -->|"verifikasi oleh mesin:<br/>diff, tes, git"| V["Satu baris hasil"]
-  V -->|"watch lewat Monitor"| O
-  O -->|"laporan kalimat biasa"| U
-```
+<p align="center"><img src="https://raw.githubusercontent.com/dianramdhani/rempug/main/docs/diagrams/gambaran-besar.png" alt="Gambaran besar: Anda berbicara dengan orkestrator, orkestrator mengirim tugas lewat tmux ke agent codex, agy, dan opencode, hasilnya masuk ke ledger rempug, diverifikasi mesin, lalu satu baris hasil kembali ke orkestrator dan laporan kalimat biasa kembali ke Anda" width="480"></p>
 
 Satu tugas dari awal sampai akhir. Perhatikan bahwa agent **tidak pernah dipercaya** sampai rempug memeriksanya sendiri:
 
-```mermaid
-sequenceDiagram
-  autonumber
-  participant O as Orkestrator
-  participant R as rempug
-  participant A as Agent (di tmux)
-  O->>R: send (brief lengkap)
-  R->>R: validasi brief, tolak bila bentrok, simpan snapshot berkas
-  R->>A: satu baris pointer
-  A->>R: brief (ini bukti pesan sampai)
-  A->>R: paham (rencananya)
-  alt cocok dengan brief
-    R-->>A: LANJUT, tanpa melibatkan orkestrator
-  else menyimpang atau ada pertanyaan
-    R-->>O: satu baris kejadian
-    O->>R: jawab
-  end
-  A->>A: bekerja
-  A->>R: reply (hasil menurut agent)
-  R->>R: hitung sendiri: berkas berubah, tes, commit
-  R-->>O: satu baris hasil lewat watch
-```
+<p align="center"><img src="https://raw.githubusercontent.com/dianramdhani/rempug/main/docs/diagrams/satu-tugas.png" alt="Satu tugas dari awal sampai akhir: send, validasi, pointer, brief, paham, bekerja, reply, verifikasi oleh mesin, dan satu baris hasil lewat watch" width="640"></p>
 
 Bila ada yang tidak beres, orkestrator naik tangga ini dan baru melibatkan Anda di akhir:
 
-```mermaid
-flowchart TD
-  G["Hasil salah atau agent bermasalah"] --> K{"Penyebab"}
-  K -->|"hasil salah"| U["Kirim ulang dengan brief lebih jelas, maksimal 2 kali"]
-  K -->|"kuota habis atau sesi hilang"| P["Pindah ke agent lain"]
-  K -->|"butuh izin manusia"| H["Beri tahu Anda dalam satu kalimat, pekerjaan lain jalan terus"]
-  U --> L{"Lulus?"}
-  L -->|ya| S["Selesai"]
-  L -->|tidak| P
-  P --> M{"Lulus?"}
-  M -->|ya| S
-  M -->|tidak| D["Orkestrator mengerjakan sendiri"]
-  D --> S
-```
+<p align="center"><img src="https://raw.githubusercontent.com/dianramdhani/rempug/main/docs/diagrams/tangga-masalah.png" alt="Tangga penanganan masalah: kirim ulang maksimal 2 kali, pindah ke agent lain, lalu orkestrator mengerjakan sendiri; bila butuh izin manusia, Anda diberi tahu satu kalimat" width="480"></p>
 
 **Prompt izin tidak pernah dijawab otomatis.** Kalau sebuah agent menunggu persetujuan, rempug hanya melaporkannya kepada Anda.
 

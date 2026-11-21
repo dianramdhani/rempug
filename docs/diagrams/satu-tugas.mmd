@@ -1,0 +1,20 @@
+sequenceDiagram
+  autonumber
+  participant O as Orkestrator
+  participant R as rempug
+  participant A as Agent (di tmux)
+  O->>R: send (brief lengkap)
+  Note over R: validasi brief, tolak bila bentrok,<br/>simpan snapshot berkas
+  R->>A: satu baris pointer
+  A->>R: brief (ini bukti pesan sampai)
+  A->>R: paham (rencananya)
+  alt cocok dengan brief
+    R-->>A: LANJUT, tanpa melibatkan orkestrator
+  else menyimpang atau ada pertanyaan
+    R-->>O: satu baris kejadian
+    O->>R: jawab
+  end
+  Note over A: bekerja
+  A->>R: reply (hasil menurut agent)
+  Note over R: hitung sendiri:<br/>berkas berubah, tes, commit
+  R-->>O: satu baris hasil lewat watch

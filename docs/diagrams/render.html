@@ -1,0 +1,19 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>render</title>
+<style>
+  html,body{margin:0;background:#fff}
+  #kotak{display:inline-block;padding:28px;background:#fff;zoom:2}
+  #kotak svg{max-width:none !important}
+</style></head>
+<body><div id="kotak">memuat…</div>
+<script src="mermaid.min.js"></script>
+<script>
+(async () => {
+  const nama = new URLSearchParams(location.search).get("d");
+  const teks = await (await fetch(nama + ".mmd")).text();
+  mermaid.initialize({ startOnLoad: false, theme: "default", flowchart: { useMaxWidth: false, htmlLabels: true }, sequence: { useMaxWidth: false }, securityLevel: "strict" });
+  const { svg } = await mermaid.render("g", teks);
+  document.getElementById("kotak").innerHTML = svg;
+  document.title = "selesai";
+})().catch(e => { document.getElementById("kotak").textContent = "GALAT: " + e.message; document.title = "galat"; });
+</script></body></html>

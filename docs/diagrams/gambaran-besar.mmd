@@ -1,0 +1,12 @@
+flowchart TB
+  U(["Anda"]) -->|"ketik /rempug, lalu minta hasil"| O["Orkestrator<br/>Claude Code"]
+  O -->|"send: satu baris pointer"| T{{"tmux"}}
+  T --> A1["Agent codex"]
+  T --> A2["Agent agy"]
+  T --> A3["Agent opencode"]
+  A1 -->|reply| R[("rempug<br/>ledger SQLite<br/>di luar repo")]
+  A2 -->|reply| R
+  A3 -->|reply| R
+  R -->|"verifikasi oleh mesin:<br/>diff, tes, git"| V["Satu baris hasil"]
+  V -->|"watch lewat Monitor"| O
+  O -.->|"laporan kalimat biasa"| U

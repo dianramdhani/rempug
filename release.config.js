@@ -6,7 +6,11 @@ export default {
 			"@semantic-release/commit-analyzer",
 			{
 				preset: "angular",
-				releaseRules: [{ type: "refactor", release: "patch" }],
+				releaseRules: [
+					{ type: "refactor", release: "patch" },
+					// README ikut terbit bersama paket dan menjadi halaman npm, jadi perubahannya perlu rilis.
+					{ type: "docs", scope: "README", release: "patch" },
+				],
 			},
 		],
 		["@semantic-release/release-notes-generator", { preset: "angular" }],

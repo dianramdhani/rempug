@@ -1,0 +1,10 @@
+flowchart TD
+  G["Hasil salah<br/>atau agent bermasalah"] --> K{"Penyebab"}
+  K -->|"hasil salah"| U["Kirim ulang dengan brief<br/>lebih jelas, maksimal 2 kali"]
+  K -->|"kuota habis atau sesi hilang"| P["Pindah ke agent lain"]
+  K -->|"butuh izin manusia"| H["Beri tahu Anda dalam satu kalimat,<br/>pekerjaan lain jalan terus"]
+  U -->|"lulus"| S(["Selesai"])
+  U -->|"belum lulus"| P
+  P -->|"lulus"| S
+  P -->|"belum lulus"| D["Orkestrator mengerjakan sendiri"]
+  D --> S
