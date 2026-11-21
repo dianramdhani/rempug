@@ -192,6 +192,32 @@ export const MIGRASI: string[] = [
 	`,
 ];
 
+function tidurSinkron(ms: number): void {
+	Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/**
+ * SQLite dapat mengembalikan SQLITE_BUSY seketika, tanpa menunggu `busy_timeout`, bila menunggu berisiko
+ * deadlock (mis. dua proses beralih ke WAL pada berkas baru bersamaan). Satu-satunya jalan adalah mengulang.
+ * Galat selain BUSY/LOCKED tidak diulang.
+ */
+export function ulangiBilaTerkunci<T>(fn: () => T, batasMs = 10_000): T {
+	const akhir = Date.now() + batasMs;
+	for (let i = 0; ; i++) {
+		try {
+			return fn();
+		} catch (error) {
+			const kode = (error as { errcode?: number }).errcode;
+			const terkunci =
+				kode === 5 ||
+				kode === 6 ||
+				/locked|busy/i.test((error as Error).message);
+			if (!terkunci || Date.now() >= akhir) throw error;
+			tidurSinkron(Math.min(5 * 2 ** Math.min(i, 5), 100));
+		}
+	}
+}
+
 function migrate(db: DatabaseSync): void {
 	// IMMEDIATE: dua proses yang membuka ledger baru bersamaan harus antre, bukan sama-sama membuat tabel.
 	db.exec("BEGIN IMMEDIATE");
@@ -267,12 +293,11 @@ export class Ledger {
 	): Ledger {
 		mkdirSync(dirname(path), { recursive: true });
 		const db = new DatabaseSync(path);
-		// busy_timeout harus lebih dulu agar pengalihan ke WAL oleh dua proses tidak gagal.
 		db.exec("PRAGMA busy_timeout = 5000");
-		db.exec("PRAGMA journal_mode = WAL");
+		ulangiBilaTerkunci(() => db.exec("PRAGMA journal_mode = WAL"));
 		db.exec("PRAGMA synchronous = NORMAL");
 		db.exec("PRAGMA foreign_keys = ON");
-		migrate(db);
+		ulangiBilaTerkunci(() => migrate(db));
 		return new Ledger(db, options.now ?? (() => Math.floor(Date.now() / 1000)));
 	}
 

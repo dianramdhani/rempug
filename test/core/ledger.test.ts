@@ -10,6 +10,7 @@ import {
 	Ledger,
 	ledgerPath,
 	retentionDays,
+	ulangiBilaTerkunci,
 } from "../../src/core/ledger.js";
 import { tmp } from "../helpers.js";
 
@@ -288,4 +289,41 @@ test("retentionDays: bawaan 30, dapat diatur lewat env, nilai tidak valid diabai
 	for (const bad of ["abc", "0", "-3", "1.5", ""]) {
 		assert.equal(retentionDays({ REMPUG_RETENTION_DAYS: bad }), 30, bad);
 	}
+});
+
+test("ulangiBilaTerkunci mengulang SQLITE_BUSY lalu berhasil, tetapi tidak galat lain", () => {
+	let n = 0;
+	const sibuk = () =>
+		Object.assign(new Error("database is locked"), { errcode: 5 });
+	assert.equal(
+		ulangiBilaTerkunci(() => {
+			if (++n < 3) throw sibuk();
+			return "ok";
+		}),
+		"ok",
+	);
+	assert.equal(n, 3);
+
+	let m = 0;
+	assert.throws(
+		() =>
+			ulangiBilaTerkunci(() => {
+				m++;
+				throw new Error("bukan soal kunci");
+			}),
+		/bukan soal kunci/,
+	);
+	assert.equal(m, 1, "galat selain BUSY tidak boleh diulang");
+});
+
+test("ulangiBilaTerkunci menyerah setelah batas waktu", () => {
+	const mulai = Date.now();
+	assert.throws(
+		() =>
+			ulangiBilaTerkunci(() => {
+				throw Object.assign(new Error("database is locked"), { errcode: 5 });
+			}, 150),
+		/locked/,
+	);
+	assert.ok(Date.now() - mulai < 2000);
 });

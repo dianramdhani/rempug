@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { gitFiles, gitInfo, isGitRepo, repoRoot } from "../../src/core/git.js";
@@ -55,7 +55,8 @@ test("gitFiles: terlacak dan tidak terlacak, tanpa yang diabaikan", (t) => {
 test("repoRoot dan isGitRepo", (t) => {
 	const repo = gitRepo(t, { "src/a.ts": "a" });
 	mkdirSync(join(repo, "src", "dalam"), { recursive: true });
-	assert.equal(repoRoot(join(repo, "src", "dalam")), repo);
+	// git mengembalikan path asli (di macOS /var adalah symlink ke /private/var).
+	assert.equal(repoRoot(join(repo, "src", "dalam")), realpathSync(repo));
 	assert.equal(isGitRepo(repo), true);
 	const luar = tmp(t);
 	assert.equal(isGitRepo(luar), false);
