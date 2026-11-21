@@ -1,3 +1,10 @@
+## [0.1.1](https://github.com/dianramdhani/rempug/compare/v0.1.0...v0.1.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* stop false failures on browser tasks and speak plain language to humans ([ad7d105](https://github.com/dianramdhani/rempug/commit/ad7d10533d27e5c58e5743e8df558271d753a70a))
+
 # [0.1.0](https://github.com/dianramdhani/rempug/compare/v0.0.0...v0.1.0) (2026-11-21)
 
 
