@@ -28,7 +28,7 @@ export function gitInfo(repo: string): GitInfo {
 	return {
 		head: git(repo, ["rev-parse", "HEAD"])?.trim(),
 		branch: git(repo, ["rev-parse", "--abbrev-ref", "HEAD"])?.trim(),
-		porcelain: git(repo, ["status", "--porcelain"])?.trimEnd(),
+		porcelain: git(repo, ["status", "--porcelain", "-uall"])?.trimEnd(),
 	};
 }
 
