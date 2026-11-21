@@ -39,11 +39,26 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.6.8",
+		"@semantic-release/changelog": "^7.0.0",
+		"@semantic-release/git": "^11.0.1",
 		"@types/node": "^22.20.5",
+		"semantic-release": "^25.0.9",
 		"typescript": "^7.0.2"
 	},
 	"dependencies": {
 		"@modelcontextprotocol/sdk": "^1.32.2",
 		"zod": "^4.6.7"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/dianramdhani/rempug.git"
+	},
+	"homepage": "https://github.com/dianramdhani/rempug#readme",
+	"bugs": {
+		"url": "https://github.com/dianramdhani/rempug/issues"
+	},
+	"publishConfig": {
+		"access": "public",
+		"provenance": true
 	}
 }
