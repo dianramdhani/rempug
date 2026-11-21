@@ -1,0 +1,14 @@
+{
+  "name": "rempug",
+  "owner": {
+    "name": "dianramdhani"
+  },
+  "plugins": [
+    {
+      "name": "rempug",
+      "source": "./",
+      "description": "Delegasi kerja dari agent orkestrator ke agent CLI lain lewat tmux, hemat token dan terverifikasi mesin."
+    }
+  ],
+  "description": "Plugin rempug: delegasi kerja ke agent CLI lain lewat tmux."
+}
