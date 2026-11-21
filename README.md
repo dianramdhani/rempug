@@ -22,19 +22,19 @@ Anda hanya mengetik `/rempug` sekali. Sesudah itu orkestrator mendelegasikan, me
 npm i -g rempug
 ```
 
-Lalu pasang skill dan server MCP untuk Claude Code, salah satunya:
+Perintah `rempug` harus ada di PATH: hook sesi dan agent yang Anda delegasikan memanggilnya dari shell (`rempug doctor` memeriksanya). Lalu pasang skill dan server MCP untuk Claude Code, salah satunya:
 
 ```bash
-# Plugin: skill /rempug + server MCP + hook awal sesi sekaligus
+# A. Plugin: skill /rempug + server MCP + hook awal sesi sekaligus
 claude plugin marketplace add dianramdhani/rempug
-claude plugin install rempug
+claude plugin install rempug@rempug
 
-# Atau manual
+# B. Manual
 rempug skill install
 claude mcp add --scope user rempug -- rempug mcp
 ```
 
-Agent yang Anda delegasikan harus bisa menjalankan `rempug` dari shell-nya (`rempug doctor` memeriksanya).
+Pasang salah satu saja, bukan keduanya. Mulai sesi Claude Code yang baru agar skill `/rempug` dan tool MCP-nya dimuat. Biaya tetap plugin sekitar 74 token per sesi; skema tool MCP baru dimuat penuh saat dipakai.
 
 ## Pemakaian
 
