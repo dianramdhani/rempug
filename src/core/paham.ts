@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { parseBrief } from "./brief.js";
 import { RempugError, UsageError } from "./errors.js";
+import { gitFiles } from "./git.js";
 import type { Ledger, Task } from "./ledger.js";
 import { PROFIL_BAWAAN } from "./profile.js";
 import { readAgents } from "./registry.js";
@@ -84,6 +85,7 @@ function pathDisebut(teks: string, repo: string): string[] {
 		.filter(
 			(t) =>
 				t !== "" &&
+				/[A-Za-z0-9]/.test(t) &&
 				!t.startsWith("-") &&
 				!t.startsWith("*") &&
 				!t.includes("://") &&
@@ -143,12 +145,20 @@ function bandingkan(
 	if (rencana.length > MAKS_BUTIR)
 		alasan.push(`rencana lebih dari ${MAKS_BUTIR} butir (${rencana.length})`);
 	// Hanya butir yang menulis yang dibatasi cakupan; membaca berkas di luar cakupan itu wajar (mis. audit).
+	// Agent sering menyebut berkas dengan nama pendek ("spec.md", "drawer-form-sim/index.tsx") padahal cakupannya
+	// memuat path lengkap; nama itu dianggap di cakupan bila cocok dengan berkas yang memang ada di cakupan.
+	let berkasCakupan: string[] | undefined;
+	const adaDiCakupan = (p: string) => {
+		const nama = p.replace(/^(\.\/)+/, "");
+		berkasCakupan ??= gitFiles(task.repo, scope);
+		return berkasCakupan.some((f) => f === nama || f.endsWith(`/${nama}`));
+	};
 	const luar = [
 		...new Set(
 			rencana
 				.filter((butir) => KATA_TULIS.test(butir))
 				.flatMap((butir) => pathDisebut(butir, task.repo))
-				.filter((p) => !covers(scope, p)),
+				.filter((p) => !covers(scope, p) && !adaDiCakupan(p)),
 		),
 	];
 	if (luar.length > 0)

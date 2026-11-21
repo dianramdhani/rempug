@@ -1,0 +1,9 @@
+● Ran (sleep 70 && echo SELESAI-UJI) (ctrl+o to expand)
+  Perintah sleep 70 && echo SELESAI-UJI sedang berjalan di latar belakang (task-2). Saya akan menunggu hingga selesai 
+  melaporkan keluarannya.
+  Perintah selesai dijalankan dengan kode keluar 0 dan keluaran:
+    SELESAI-UJI
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+>
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+? for shortcuts                                                                                  auto · Gemini 4 Hydro

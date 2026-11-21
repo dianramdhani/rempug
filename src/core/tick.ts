@@ -44,6 +44,41 @@ export async function tick(deps: TickDeps): Promise<string[]> {
 	const keluar: string[] = [];
 	const panes = new Set(listPanes(deps.tmux).map((p) => p.target));
 
+	// Tugas yang ditandai macet bisa ternyata masih bekerja (mis. menjalankan perintah panjang tanpa mengubah layar).
+	// Bila layarnya bergerak lagi atau penanda sibuk tampil, kembalikan ke berjalan. Yang macet karena limit tidak dipulihkan.
+	for (const task of ledger.tasksWhere(deps.repo, ["macet"])) {
+		if (task.flag === "limit") continue;
+		const agent = readAgents(deps.registryFile).find(
+			(a) => a.name === task.agent,
+		);
+		if (!agent || !panes.has(agent.tmux)) continue;
+		let layar: ReturnType<Transport["tampak"]>;
+		try {
+			layar = transport.tampak(agent.tmux);
+		} catch {
+			continue;
+		}
+		const hash = hashLayar(layar.baris.join("\n"));
+		const bergerak = task.scrHash !== undefined && task.scrHash !== hash;
+		const sibuk =
+			klasifikasi({
+				baris: layar.baris,
+				kursorY: layar.kursorY,
+				berubah: false,
+				token: `rempug brief T${task.id}`,
+			}) === "bekerja";
+		if (!bergerak && !sibuk) continue;
+		ledger.setStatus(task.id, "berjalan");
+		ledger.patch(task.id, {
+			scrHash: hash,
+			scrSince: ledger.now(),
+			flag: null,
+		});
+		const baris = `T${task.id} ${task.agent} kembali bekerja: layar agent bergerak lagi setelah ditandai macet`;
+		ledger.addEvent(task.id, "pulih", baris);
+		keluar.push(baris);
+	}
+
 	for (const task of ledger.tasksWhere(deps.repo, ["berjalan"])) {
 		const agent = readAgents(deps.registryFile).find(
 			(a) => a.name === task.agent,

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
 	hashLayar,
@@ -159,4 +160,88 @@ test("normalisasi membuang spinner, angka, dan spasi berlebih, tetapi teks baru 
 		hashLayar("Working... membaca berkas"),
 	);
 	assert.equal(hashLayar("⠋ Working 1s"), hashLayar("⠙ Working 2s"));
+});
+
+/** Layar asli codex dan Antigravity yang direkam saat menjalankan `sleep 70`; lihat test/fixtures/layar. */
+const layarAsli = (nama: string) =>
+	readFileSync(
+		new URL(`../../../test/fixtures/layar/${nama}.txt`, import.meta.url),
+		"utf8",
+	).split("\n");
+
+test("layar asli saat agent bekerja dikenali sebagai bekerja walau tampak diam (timer diabaikan)", () => {
+	for (const nama of [
+		"codex-bekerja",
+		"codex-bekerja-lama",
+		"agy-berpikir",
+		"agy-tugas-latar-belakang",
+		"agy-menyusun-jawaban",
+	])
+		assert.equal(
+			klasifikasi({ baris: layarAsli(nama), berubah: false }),
+			"bekerja",
+			nama,
+		);
+});
+
+test("layar asli setelah agent selesai dikenali sebagai siap", () => {
+	for (const nama of ["codex-selesai", "agy-selesai"])
+		assert.equal(
+			klasifikasi({ baris: layarAsli(nama), berubah: false }),
+			"siap",
+			nama,
+		);
+});
+
+test("penanda sibuk tidak menutupi prompt izin dan limit, dan tidak membuat kata biasa terbaca sibuk", () => {
+	// Dialog izin codex memuat "esc to cancel"; tetap harus terbaca sebagai menunggu izin.
+	assert.equal(
+		klasifikasi({
+			baris: [
+				"Would you like to run this command?",
+				"Press enter to confirm or esc to cancel",
+			],
+			berubah: false,
+		}),
+		"menunggu-izin",
+	);
+	assert.equal(
+		klasifikasi({
+			baris: ["esc to interrupt", "rate limit exceeded"],
+			berubah: false,
+		}),
+		"error",
+	);
+	// Teks biasa yang menyebut "3 tasks" atau "Working" di riwayat bukan penanda sibuk.
+	assert.equal(
+		klasifikasi({
+			baris: ["Selesai mengerjakan 3 tasks", "> "],
+			berubah: false,
+		}),
+		"siap",
+	);
+	assert.equal(
+		klasifikasi({
+			baris: ["Saya Working di folder lain", "> "],
+			berubah: false,
+		}),
+		"siap",
+	);
+});
+
+test("penanda sibuk didahulukan dari teks yang tertahan di kotak input", () => {
+	const baris = [
+		"• Working (3s • esc to interrupt)",
+		"",
+		"> Tugas T5: jalankan `rempug brief T5`",
+	];
+	assert.equal(
+		klasifikasi({
+			baris,
+			kursorY: 2,
+			berubah: false,
+			token: "rempug brief T5",
+		}),
+		"bekerja",
+	);
 });

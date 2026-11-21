@@ -313,3 +313,22 @@ test("laporan manusia: commit lain saat tugas berjalan disebut sebagai catatan, 
 	);
 	assert.doesNotMatch(teks, /Perlu perhatian/);
 });
+
+test("laporan manusia: cek yang lulus setelah diulang disebut, bukan disembunyikan", () => {
+	const teks = formatLaporanManusia([
+		tugas({
+			brief: brief("Ubah kolom", "edit src/**"),
+			verify: verify("x", {
+				perubahan: [{ path: "src/a.ts", status: "M", plus: 1, minus: 0 }],
+				plus: 1,
+				minus: 0,
+				luarCakupan: [],
+				cek: [{ label: "vitest", ok: true, diulang: true, ekor: "" }],
+			}),
+		}),
+	]);
+	assert.match(
+		teks,
+		/semua pengecekan lulus \(vitest perlu diulang satu kali\)/,
+	);
+});

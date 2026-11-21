@@ -171,6 +171,8 @@ Semuanya juga tersedia sebagai tool MCP (`rempug mcp`), kecuali `watch`. Jalanka
 - Pada tugas `baca` dan `browser`, kolom `CEK` adalah deskripsi bukti yang harus dilaporkan agent, bukan perintah yang dijalankan. Perintah shell hanya dijalankan untuk tugas `edit`.
 - Beberapa agent berbagi satu working tree dan branch. Commit Anda atau orkestrator saat tugas berjalan hanya menjadi **peringatan**; yang dianggap pelanggaran adalah pindah branch, menulis ulang riwayat, atau commit yang mengubah berkas di cakupan tugas itu sendiri.
 - Pemeriksaan rencana hanya membatasi **penulisan** di luar cakupan. Menyebut berkas lain untuk dibaca (misalnya tugas audit) tidak menahan tugas. Pemeriksaan perubahan nyata setelah tugas selesai tetap menjadi jaring terakhir.
+- **Penanda "sedang bekerja" dari layar divalidasi hanya untuk codex 0.171 dan Antigravity 1.5** (dengan agent asli yang menjalankan perintah 70 detik). Selama penanda itu tampil, rempug tidak mengetik pengingat dan tidak menyatakan agent macet. Agent lain bergantung pada perubahan layar saja, yang bisa keliru untuk perintah panjang yang tidak mengubah layar.
+- Tugas yang sempat ditandai macet kembali berjalan sendiri bila layar agent bergerak lagi atau penanda sibuk tampil. Cek yang gagal diulang satu kali sebelum dinyatakan gagal, karena beberapa agent menjalankan tes berat bersamaan di satu mesin.
 - Windows tidak didukung (tmux).
 
 ## Pengembangan

@@ -229,6 +229,8 @@ export interface CheckResult {
 	ok: boolean;
 	kode: number | null;
 	timeout: boolean;
+	/** Gagal pada percobaan pertama, lulus pada percobaan kedua. */
+	diulang?: boolean;
 	/** Jumlah kegagalan bila keluaran cocok pola alat yang dikenal. */
 	gagal?: number;
 	ekor: string;
@@ -280,7 +282,7 @@ export function runChecks(
 	cwd: string,
 	waktuMs = WAKTU_CEK_MS,
 ): CheckResult[] {
-	return perintah.map((cmd) => {
+	const sekali = (cmd: string): CheckResult => {
 		const hasil = spawnSync("sh", ["-c", cmd], {
 			cwd,
 			encoding: "utf8",
@@ -301,6 +303,14 @@ export function runChecks(
 			gagal: ok ? undefined : parseFailureCount(keluaran),
 			ekor: keluaran.trimEnd().split("\n").slice(-10).join("\n"),
 		};
+	};
+	return perintah.map((cmd) => {
+		const pertama = sekali(cmd);
+		// Beberapa agent menjalankan tes berat bersamaan di satu mesin, sehingga uji yang bergantung waktu
+		// bisa gagal sekali saja. Satu percobaan ulang; kegagalan yang nyata gagal dua kali. Timeout tidak diulang.
+		if (pertama.ok || pertama.timeout) return pertama;
+		const kedua = sekali(cmd);
+		return kedua.ok ? { ...kedua, diulang: true } : kedua;
 	});
 }
 
@@ -330,7 +340,7 @@ export function formatLine(
 	const tanda = hasil.ok ? "✓" : "✗";
 	const cek = hasil.cek.map((c) =>
 		c.ok
-			? `${c.label} ✓`
+			? `${c.label} ✓${c.diulang ? "(ulang)" : ""}`
 			: c.timeout
 				? `${c.label} ⏱`
 				: c.gagal

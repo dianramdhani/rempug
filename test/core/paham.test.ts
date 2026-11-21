@@ -6,7 +6,7 @@ import { Ledger } from "../../src/core/ledger.js";
 import { jawab, paham, tunggu } from "../../src/core/paham.js";
 import { registerAgent } from "../../src/core/registry.js";
 import type { Transport } from "../../src/core/transport.js";
-import { tmp } from "../helpers.js";
+import { gitRepo, tmp } from "../helpers.js";
 
 const BRIEF = `TUJUAN: Ubah kolom
 CAKUPAN: edit src/features/device/**
@@ -382,4 +382,66 @@ test("CEK: perintah tambahan dari agent boleh, tetapi perintah brief yang hilang
 
 	const { kirim: k3 } = siapkanAudit(t);
 	assert.equal(k3({ CEK: "-" }).hasil, "MENUNGGU");
+});
+
+/** Repo git sungguhan berisi berkas yang disebut agent dengan nama pendek, seperti di sesi audit nyata. */
+function siapkanNamaPendek(t: Parameters<typeof tmp>[0]) {
+	const repo = gitRepo(t, {
+		"src/features/sim/components/drawer-form-sim/index.tsx": "a\n",
+		"src/features/sim/components/drawer-form-sim/spec.md": "b\n",
+		"src/features/sim/components/lain/index.tsx": "c\n",
+		"package.json": "{}\n",
+	});
+	const ledger = Ledger.open(join(tmp(t), "l.db"));
+	t.after(() => ledger.close());
+	const scope = [
+		"src/features/sim/components/drawer-form-sim/index.tsx",
+		"src/features/sim/components/drawer-form-sim/spec.md",
+	];
+	const brief = `TUJUAN: Teruskan loading\nCAKUPAN: edit ${scope.join(" ")}\nLANGKAH:\n1. Ubah.\nCEK:\ntrue\nBALASAN: hasil`;
+	const id = ledger.createTask({
+		repo,
+		agent: "agy",
+		mode: "edit",
+		scope,
+		brief,
+	});
+	ledger.setStatus(id, "berjalan");
+	return (rencana: string) =>
+		paham(
+			ledger,
+			id,
+			`CAKUPAN: edit ${scope.join(" ")}\nCEK: true\nRENCANA: ${rencana}\nASUMSI: -\nPERTANYAAN: -`,
+		);
+}
+
+test("nama berkas pendek atau parsial yang ada di cakupan dianggap berada di cakupan", (t) => {
+	const kirim = siapkanNamaPendek(t);
+	for (const rencana of [
+		"1. Ubah drawer-form-sim/index.tsx dan spec.md",
+		"1. Ubah index.tsx lalu perbarui spec.md",
+		"1. Edit src/features/sim/components/drawer-form-sim/spec.md",
+	])
+		assert.deepEqual(kirim(rencana), { hasil: "LANJUT" }, rencana);
+});
+
+test("nama berkas pendek yang TIDAK ada di cakupan tetap menahan tugas", (t) => {
+	const kirim = siapkanNamaPendek(t);
+	const r = kirim("1. Ubah package.json");
+	assert.equal(r.hasil, "MENUNGGU");
+	if (r.hasil === "MENUNGGU")
+		assert.match(r.alasan, /di luar cakupan.*package\.json/);
+	assert.equal(kirim("1. Ubah lain/index.tsx").hasil, "MENUNGGU");
+});
+
+test("tanda garis miring tunggal bukan path", (t) => {
+	const { kirim } = siapkanAudit(t);
+	assert.deepEqual(
+		kirim({ RENCANA: "1. Tulis laporan ke evidence/AUDIT-A1.md / lalu cek /" }),
+		{ hasil: "LANJUT" },
+	);
+	assert.deepEqual(
+		kirim({ RENCANA: "1. Baca dan/atau tulis temuan ke evidence/AUDIT-A1.md" }),
+		{ hasil: "LANJUT" },
+	);
 });

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readAgents } from "../../src/core/registry.js";
+import { hashLayar } from "../../src/core/screen.js";
 import { type SendDeps, sendTask } from "../../src/core/send.js";
 import { tick } from "../../src/core/tick.js";
 import { type SpesAgen, ujiAgen, until } from "../helpers.js";
@@ -181,4 +182,51 @@ test("hanya tugas berjalan yang dipantau", async (t) => {
 	m.maju(100);
 	assert.deepEqual(await m.jalan(), []);
 	assert.equal(m.ledger.getTask(m.id)?.upaya, 0);
+});
+
+test("agent yang menampilkan penanda sibuk tidak diberi pengingat dan tidak ditandai macet", async (t) => {
+	const m = await mulai(t, { FAKE_SIBUK: "1" });
+	m.ledger.markAcked(m.id);
+	for (let i = 0; i < 6; i++) {
+		m.maju(60);
+		assert.deepEqual(await m.jalan(), [], `putaran ${i}`);
+	}
+	assert.equal(m.status(), "berjalan");
+	assert.equal(m.ledger.getTask(m.id)?.pengingat, 0);
+	assert.equal(
+		m.diterima("codex").length,
+		1,
+		"tidak ada pengingat yang diketik ke agent",
+	);
+});
+
+test("tugas macet kembali berjalan bila agent ternyata bekerja lagi, dan klaimnya tidak hilang", async (t) => {
+	const m = await mulai(t, { FAKE_SIBUK: "1" });
+	m.ledger.markAcked(m.id);
+	m.ledger.setStatus(m.id, "macet");
+	const [baris] = await m.jalan();
+	assert.match(baris ?? "", new RegExp(`^T${m.id} codex kembali bekerja`));
+	assert.equal(m.status(), "berjalan");
+	assert.equal(m.ledger.eventsAfter(0, "/repo").at(-1)?.kind, "pulih");
+	assert.deepEqual(await m.jalan(), [], "tidak dilaporkan berulang");
+});
+
+test("tugas macet tetap macet bila layar tidak bergerak dan tidak ada penanda sibuk", async (t) => {
+	const m = await mulai(t);
+	m.ledger.markAcked(m.id);
+	const { baris } = m.transport.tampak("1:0.0");
+	m.ledger.patch(m.id, { scrHash: hashLayar(baris.join("\n")) });
+	m.ledger.setStatus(m.id, "macet");
+	assert.deepEqual(await m.jalan(), []);
+	assert.equal(m.status(), "macet");
+});
+
+test("tugas macet pulih bila layar agent bergerak walau tanpa penanda sibuk", async (t) => {
+	const m = await mulai(t);
+	m.ledger.markAcked(m.id);
+	m.ledger.patch(m.id, { scrHash: hashLayar("layar lama yang berbeda") });
+	m.ledger.setStatus(m.id, "macet");
+	const [baris] = await m.jalan();
+	assert.match(baris ?? "", /kembali bekerja/);
+	assert.equal(m.status(), "berjalan");
 });

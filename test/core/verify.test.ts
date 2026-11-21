@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { gitInfo } from "../../src/core/git.js";
@@ -640,4 +640,55 @@ test("tugas baca dengan commit orang lain tidak dianggap pelanggaran", (t) => {
 	const hasil = verifyTask(ledger, id);
 	assert.equal(hasil.pelanggaran, undefined);
 	assert.equal(ledger.getTask(id)?.status, "selesai");
+});
+
+test("runChecks mengulang sekali cek yang gagal; lulus pada percobaan kedua ditandai diulang", (t) => {
+	const dir = tmp(t);
+	const [r] = runChecks(["test -f penanda || { touch penanda; exit 1; }"], dir);
+	assert.equal(r?.ok, true);
+	assert.equal(r?.diulang, true);
+});
+
+test("cek yang gagal dua kali tetap gagal dan dijalankan tepat dua kali", (t) => {
+	const dir = tmp(t);
+	const [r] = runChecks(["echo x >> hitung; exit 1"], dir);
+	assert.equal(r?.ok, false);
+	assert.equal(r?.diulang, undefined);
+	assert.equal(
+		readFileSync(join(dir, "hitung"), "utf8").trim().split("\n").length,
+		2,
+	);
+});
+
+test("cek yang lulus dijalankan sekali, dan timeout tidak diulang", (t) => {
+	const dir = tmp(t);
+	runChecks(["echo x >> lulus"], dir);
+	assert.equal(
+		readFileSync(join(dir, "lulus"), "utf8").trim().split("\n").length,
+		1,
+	);
+	const [r] = runChecks(["echo x >> lambat; sleep 5"], dir, 300);
+	assert.equal(r?.timeout, true);
+	assert.equal(
+		readFileSync(join(dir, "lambat"), "utf8").trim().split("\n").length,
+		1,
+	);
+});
+
+test("formatLine menandai cek yang lulus setelah diulang", () => {
+	const cek = [
+		{
+			cmd: "vitest",
+			label: "vitest",
+			ok: true,
+			kode: 0,
+			timeout: false,
+			diulang: true,
+			ekor: "",
+		},
+	];
+	assert.match(
+		formatLine(edit, hasil({ cek: cek as VerifyResult["cek"] })),
+		/vitest ✓\(ulang\)/,
+	);
 });

@@ -26,6 +26,21 @@ const POLA_LIMIT = [
 	/token refresh failed|\b401\b|unauthorized|authentication (failed|error)|invalid api key|not logged in|log ?in again|login required/i,
 ];
 
+/**
+ * Tanda bahwa agent sedang bekerja walau layarnya tampak diam. Divalidasi dengan codex 0.171 dan
+ * Antigravity 1.5 asli yang menjalankan perintah 70 detik: timer berdetik (angka) tidak dihitung sebagai
+ * perubahan layar, dan Antigravity memindahkan perintah panjang ke latar belakang (tanpa "esc to cancel").
+ * Kata biasa seperti "Working" atau "3 tasks" di riwayat sengaja tidak cocok: polanya meminta bentuk lengkapnya.
+ */
+const POLA_SIBUK = [
+	/esc to (interrupt|cancel)/i, // codex dan Antigravity saat berpikir atau menjalankan
+	/background terminal running/i, // codex
+	/\bWorking \(\d/, // codex: "Working (45s • esc to interrupt)"
+	/^\s*●\s*\[\d{1,2}:\d{2}:\d{2}\].*\brunning\b/im, // Antigravity: tugas latar belakang
+	/·\s*\d+ tasks?/i, // Antigravity: footer "· 1 task(s" selama ada tugas latar belakang
+	/[\u2800-\u28ff]\s+(Working|Running|Thinking)/i, // Antigravity: spinner dengan kata kerja
+];
+
 /** Jumlah baris terakhir yang dianggap "saat ini"; yang lebih atas adalah riwayat. */
 const BARIS_AKHIR = 8;
 
@@ -103,6 +118,9 @@ export function klasifikasi(masuk: KlasifikasiInput): Keadaan {
 		return "error";
 	if ([...POLA_IZIN, ...tambahan(masuk.polaIzin)].some((p) => p.test(akhir)))
 		return "menunggu-izin";
+	// Setelah izin dan limit (dialog izin juga memuat "esc to cancel"), sebelum teks tertahan: agent yang sedang
+	// bekerja tidak boleh dikirimi ulang atau diingatkan.
+	if (POLA_SIBUK.some((p) => p.test(akhir))) return "bekerja";
 	const token = masuk.token;
 	if (token && tertahan(masuk.baris, masuk.kursorY, token)) return "tertahan";
 	const tanpaPointer = token

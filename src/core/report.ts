@@ -150,7 +150,12 @@ function uraianPerubahan(hasil: VerifyResult): string {
 function uraianCek(hasil: VerifyResult): string | undefined {
 	if (hasil.cek.length === 0) return undefined;
 	const gagal = hasil.cek.filter((c) => !c.ok);
-	if (gagal.length === 0) return "semua pengecekan lulus";
+	if (gagal.length === 0) {
+		const ulang = hasil.cek.filter((c) => c.diulang).map((c) => c.label);
+		return ulang.length
+			? `semua pengecekan lulus (${ulang.join(", ")} perlu diulang satu kali)`
+			: "semua pengecekan lulus";
+	}
 	return gagal
 		.map((c) =>
 			c.timeout

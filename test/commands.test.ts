@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { run } from "../src/commands.js";
 import { UsageError } from "../src/core/errors.js";
@@ -441,5 +442,25 @@ test("CLAUDE_CONFIG_DIR menentukan lokasi pemasangan skill", async (t) => {
 	assert.match(
 		readFileSync(join(lain, "skills", "rempug", "SKILL.md"), "utf8"),
 		/name: rempug/,
+	);
+});
+
+test("penanda kejadian tertunda disembunyikan selama watch hidup, karena watch sendiri yang menyampaikannya", async (t) => {
+	const { jalan, daftar, dir } = await siapkan(t, [{ nama: "agy" }]);
+	await daftar();
+	await jalan(["send", "agy"], BACA);
+	await jalan(["reply", "1"], "ok");
+	await jalan(["_verify", "1"]);
+
+	const db = new DatabaseSync(join(dir, "state", "rempug", "ledger.db"));
+	t.after(() => db.close());
+	// watch hidup: terlihat baru saja
+	db.exec(`UPDATE consumers SET last_seen = ${Math.floor(Date.now() / 1000)}`);
+	assert.doesNotMatch((await jalan(["log"])).out[0] ?? "", /^\[/);
+	// watch mati: terakhir terlihat lama
+	db.exec("UPDATE consumers SET last_seen = 1");
+	assert.match(
+		(await jalan(["log"])).out[0] ?? "",
+		/^\[1 kejadian belum disampaikan/,
 	);
 });

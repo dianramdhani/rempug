@@ -53,10 +53,14 @@ export function pointer(id: number): string {
 	return `Tugas T${id}: jalankan \`rempug brief T${id}\`, kerjakan persis isinya, lalu balas dengan \`rempug reply T${id}\` (isi lewat stdin). Dilarang git commit, push, reset, checkout, stash.`;
 }
 
-function peringatanWatch(ledger: Ledger): string | undefined {
+/** Apakah `rempug watch` untuk orkestrator sedang berjalan (terlihat dalam beberapa detik terakhir). */
+export function watchHidup(ledger: Ledger): boolean {
 	const seen = ledger.getConsumer(KONSUMEN)?.lastSeen;
-	if (seen !== undefined && ledger.now() - seen <= WATCH_HIDUP_DETIK)
-		return undefined;
+	return seen !== undefined && ledger.now() - seen <= WATCH_HIDUP_DETIK;
+}
+
+function peringatanWatch(ledger: Ledger): string | undefined {
+	if (watchHidup(ledger)) return undefined;
 	return "peringatan: `rempug watch` belum aktif; pasang lewat Monitor (timeout maksimum) sebelum menunggu hasil.";
 }
 

@@ -40,6 +40,7 @@ import {
 	readBrief,
 	type SendDeps,
 	sendTask,
+	watchHidup,
 } from "./core/send.js";
 import { type TickOpsi, tick } from "./core/tick.js";
 import { listPanes, type TmuxOpts } from "./core/tmux.js";
@@ -225,9 +226,7 @@ const HANDLERS: Record<string, Handler> = {
 	},
 
 	async ls(_args, h) {
-		const kons = h.ledger.getConsumer(KONSUMEN);
-		const hidup =
-			kons?.lastSeen !== undefined && h.ledger.now() - kons.lastSeen <= 10;
+		const hidup = watchHidup(h.ledger);
 		// Tanpa watch yang berjalan, pemeriksaan layar dilakukan di sini agar agent macet tetap terdeteksi.
 		if (!hidup)
 			await tick({
@@ -555,10 +554,8 @@ const HANDLERS: Record<string, Handler> = {
 			.map((r) => r.name);
 		if (usang.length)
 			bagian.push(`usang: ${usang.join(", ")} (jalankan probe)`);
-		const kons = h.ledger.getConsumer(KONSUMEN);
-		const hidup =
-			kons?.lastSeen !== undefined && h.ledger.now() - kons.lastSeen <= 10;
-		if (rows.length) bagian.push(hidup ? "pantau aktif" : "pantau mati");
+		if (rows.length)
+			bagian.push(watchHidup(h.ledger) ? "pantau aktif" : "pantau mati");
 		h.io.stdout(
 			bagian.length
 				? `rempug: ${bagian.join(" | ")}`
@@ -617,7 +614,9 @@ export async function run(argv: string[], ctx: Ctx): Promise<number> {
 			ctx,
 			io,
 		};
-		if (BERPENANDA.has(cmd)) {
+		// Saat watch hidup, ia sendiri yang menyampaikan kejadiannya dalam sedetik; penanda hanya akan
+		// membuat orkestrator memanggil `terima` yang kosong.
+		if (BERPENANDA.has(cmd) && !watchHidup(h.ledger)) {
 			const penanda = penandaTertunda(h.ledger, h.repo);
 			if (penanda) io.stdout(penanda);
 		}
