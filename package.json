@@ -1,6 +1,6 @@
 {
 	"name": "rempug",
-	"version": "0.1.4",
+	"version": "0.1.5",
 	"description": "Bagi pekerjaan dari agent orkestrator ke agent CLI lain lewat tmux, dengan hasil yang diperiksa mesin.",
 	"keywords": [
 		"agent",

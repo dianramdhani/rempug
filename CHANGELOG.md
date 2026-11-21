@@ -1,3 +1,10 @@
+## [0.1.5](https://github.com/dianramdhani/rempug/compare/v0.1.4...v0.1.5) (2026-11-21)
+
+
+### Bug Fixes
+
+* **probe:** read the whole screen so a distant auth error is not missed ([8465d7d](https://github.com/dianramdhani/rempug/commit/8465d7db72af7f938819b977548b435f6877c298))
+
 ## [0.1.4](https://github.com/dianramdhani/rempug/compare/v0.1.3...v0.1.4) (2026-11-21)
 
 
